@@ -83,9 +83,6 @@
                                             <xsl:when test="$SPRÅK.en">
                                                 <xsl:text> and </xsl:text>
                                             </xsl:when>
-                                            <xsl:when test="$SPRÅK.se">
-                                                <xsl:text> ja </xsl:text>
-                                            </xsl:when>
                                             <xsl:otherwise>
                                                 <xsl:text> og </xsl:text>
                                             </xsl:otherwise>
@@ -177,9 +174,6 @@
                     <xsl:when test="$SPRÅK.en">
                         <xsl:value-of select="'one'"/>
                     </xsl:when>
-                    <xsl:when test="$SPRÅK.se">
-                        <xsl:value-of select="'okta'"/>
-                    </xsl:when>
                     <xsl:when test="$SPRÅK.nn">
                         <xsl:choose>
                             <xsl:when test="$intetkjønn">
@@ -214,15 +208,8 @@
                         <xsl:when test="$SPRÅK.en">
                             <xsl:sequence
                                 select="
-                                ('one', 'two', 'three', 'four', 'five', 'six', 'seven',
-                                'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen')"
-                            />
-                        </xsl:when>
-                        <xsl:when test="$SPRÅK.se">
-                            <xsl:sequence
-                                select="
-                                ('okta', 'guokte', 'golbma', 'njeallje', 'vihtta', 'guhtta', 'čieža',
-                                'gávcci', 'ovcci', 'logi', '11', '12', '13', '14', '15')"
+                                    ('one', 'two', 'three', 'four', 'five', 'six', 'seven',
+                                    'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen')"
                             />
                         </xsl:when>
                         <xsl:otherwise>

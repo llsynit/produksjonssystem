@@ -1,13 +1,13 @@
 common:
  - administrators:
-   - TL-Administrator@nb.no
+   - Administrator@nlb.no
  - librarians:
-   - TL-Administrator@nb.no
+   - Administrator@nlb.no
  - default_librarian:
-   - TL-Administrator@nb.no
+   - Administrator@nlb.no
 
 generate-resources:
-  - TL-Administrator@nb.no
+  - Administrator@nlb.no
   - url_database_list:
     - https://dod.dev.nlb.no/metadataGenerator/webresources/updateMetadata/list
   - test_user:

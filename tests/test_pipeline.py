@@ -41,8 +41,8 @@ class PipelineTest(unittest.TestCase):
         self.pipeline = Pipeline(
             during_working_hours=True,
             during_night_and_weekend=True,
-            title="test",
-            uid="test"
+            _title="test",
+            _uid="test"
         )
         self.pipeline._inactivity_timeout = 1
 
