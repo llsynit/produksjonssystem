@@ -144,7 +144,7 @@ class PrepareForEbook(Pipeline):
         library = library.upper() if library else library
         logo = os.path.join(Xslt.xslt_dir, PrepareForEbook.uid, "{}_logo.png".format(library))
 
-        if os.path.isfile(logo) and library != "NLB":
+        if os.path.isfile(logo):
             shutil.copy(logo, os.path.join(html_dir, os.path.basename(logo)))
 
         PrepareForEbook.update_css()
@@ -154,20 +154,19 @@ class PrepareForEbook(Pipeline):
             stylesheet = PrepareForEbook.css_tempfile_statped_obj.name
         shutil.copy(stylesheet, os.path.join(html_dir, "ebok.css"))
 
-        if os.path.isfile(logo) and library != "NLB":
-            self.utils.report.info("Legger til logoen i OPF-manifestet")
-            xslt = Xslt(self,
-                        stylesheet=os.path.join(Xslt.xslt_dir, PrepareForEbook.uid, "add-to-opf-manifest.xsl"),
-                        source=opf_path,
-                        target=temp_xml,
-                        parameters={
-                            "href": os.path.basename(logo),
-                            "media-type": "image/png"
-                        })
-            if not xslt.success:
-                self.utils.report.title = self.title + ": " + epub.identifier() + " feilet 😭👎" + epubTitle
-                return False
-            shutil.copy(temp_xml, opf_path)
+        self.utils.report.info("Legger til logoen i OPF-manifestet")
+        xslt = Xslt(self,
+                    stylesheet=os.path.join(Xslt.xslt_dir, PrepareForEbook.uid, "add-to-opf-manifest.xsl"),
+                    source=opf_path,
+                    target=temp_xml,
+                    parameters={
+                        "href": os.path.basename(logo),
+                        "media-type": "image/png"
+                    })
+        if not xslt.success:
+            self.utils.report.title = self.title + ": " + epub.identifier() + " feilet 😭👎" + epubTitle
+            return False
+        shutil.copy(temp_xml, opf_path)
 
         self.utils.report.info("Legger til CSS-fila i OPF-manifestet")
         xslt = Xslt(self,
@@ -292,7 +291,7 @@ class PrepareForEbook(Pipeline):
 
             latest_url_statped = "https://raw.githubusercontent.com/StatpedEPUB/nlb-scss/master/dist/css/statped.min.css"
 
-            latest_url = "https://github.com/nlbdev/nlb-scss/releases/download/2023-03-20/epub.min.css"
+            latest_url = "https://github.com/nlbdev/nlb-scss/releases/download/v1.1.1/epub.min.css"
 
             response = requests.get(latest_url)
             response_statped = requests.get(latest_url_statped)

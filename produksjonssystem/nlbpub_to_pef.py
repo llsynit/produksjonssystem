@@ -6,22 +6,45 @@ import os
 import sys
 import tempfile
 import traceback
+from typing import List, Optional, Tuple
 
 from lxml import etree as ElementTree
 
 from core.pipeline import Pipeline
+from core.utils.xslt import Xslt
 from core.utils.metadata import Metadata
 from core.utils.daisy_pipeline import DaisyPipelineJob
 from core.utils.filesystem import Filesystem
+from prepare_for_braille import PrepareForBraille
 
 if sys.version_info[0] != 3 or sys.version_info[1] < 5:
     print("# This script requires Python version 3.5+")
     sys.exit(1)
 
 
-def transfer_metadata_from_html_to_pef(html_file, pef_file, additional_metadata):
-    html_xml = ElementTree.parse(html_file).getroot()
-    pef_xml_document = ElementTree.parse(pef_file)
+def transfer_metadata_from_html_to_pef(html_file: str, pef_file: str,
+                                       additional_metadata: List[Tuple[str, str, str, Optional[str], str]]) -> None:
+    """
+    Transfers metadata from an HTML file to a PEF file.
+
+    Args:
+        html_file (str): The path to the HTML file.
+        pef_file (str): The path to the PEF file.
+        additional_metadata (List[Tuple[str, str, str, Optional[str], str]]): A list of tuples containing metadata to be added to the PEF file.
+
+        Each tuple contains the following elements:
+            tagname (str): The name of the metadata tag.
+            prefix (str): The prefix of the metadata namespace.
+            namespace (str): The namespace of the metadata.
+            attribname (Optional[str]): The name of the metadata attribute.
+            value (str): The value of the metadata.
+
+    Returns:
+        None
+    """
+    xml_parser = ElementTree.XMLParser(remove_blank_text=True)
+    html_xml = ElementTree.parse(html_file, parser=xml_parser).getroot()
+    pef_xml_document = ElementTree.parse(pef_file, parser=xml_parser)
     pef_xml = pef_xml_document.getroot()
     html_meta_elements = html_xml.xpath("/*/*[local-name()='head']/*")
     pef_meta = pef_xml.xpath("/*/*[local-name()='head']/*[local-name()='meta']")[0]
@@ -76,7 +99,11 @@ def transfer_metadata_from_html_to_pef(html_file, pef_file, additional_metadata)
             tag = "{" + namespace + "}" + meta.attrib["name"].split(":")[1]
             text = meta.attrib["content"]
 
-        element = ElementTree.Element(tag, nsmap={prefix: meta.nsmap[prefix] for prefix in meta.nsmap if meta.nsmap[prefix] == namespace})
+        element = ElementTree.Element(
+            tag,
+            attrib={"xmlns": namespace},
+            nsmap={prefix: meta.nsmap[prefix] for prefix in meta.nsmap if meta.nsmap[prefix] == namespace}
+        )
         element.text = text
         if namespace == "http://purl.org/dc/elements/1.1/":
             element = ElementTree.Comment(" " + ElementTree.tounicode(element) + " ")
@@ -84,7 +111,7 @@ def transfer_metadata_from_html_to_pef(html_file, pef_file, additional_metadata)
         pef_meta.append(element)
 
     for (tagname, prefix, namespace, attribname, value) in additional_metadata:
-        element = ElementTree.Element("{" + namespace + "}" + tagname, nsmap={prefix: namespace})
+        element = ElementTree.Element("{" + namespace + "}" + tagname, attrib={"name": attribname}, nsmap={prefix: namespace})
         if attribname is not None:
             element.attrib["name"] = attribname
         element.text = value
@@ -97,7 +124,6 @@ def transfer_metadata_from_html_to_pef(html_file, pef_file, additional_metadata)
     pef_meta.xpath("*")[-1].tail = lasttail
 
     pef_xml_document.write(pef_file, method='XML', xml_declaration=True, encoding='UTF-8', pretty_print=False)
-
 
 class NlbpubToPef(Pipeline):
     uid = "nlbpub-to-pef"
@@ -138,8 +164,13 @@ class NlbpubToPef(Pipeline):
             self.utils.report.title = self.title + ": " + self.book["name"] + " feilet "
             return False
 
-        html_xml = ElementTree.parse(html_file).getroot()
+        #html_xml = ElementTree.parse(html_file).getroot()
+        #identifier = html_xml.xpath("/*/*[local-name()='head']/*[@name='dc:identifier']")
+
+        xml_parser = ElementTree.XMLParser(encoding="utf-8")
+        html_xml = ElementTree.parse(html_file, parser=xml_parser).getroot()
         identifier = html_xml.xpath("/*/*[local-name()='head']/*[@name='dc:identifier']")
+        
 
         metadata = Metadata.get_metadata_from_book(self.utils.report, temp_htmldir)
 
@@ -169,7 +200,12 @@ class NlbpubToPef(Pipeline):
 
         # create context for Pipeline 2 job
         html_dir = os.path.dirname(html_file)
-        html_context = {}
+        print("html_file directory")
+        print(html_dir)
+        #html_context = {}
+        html_context = {
+            "braille.scss": os.path.join(Xslt.xslt_dir, PrepareForBraille.uid, "braille.scss")
+        }
         for root, dirs, files in os.walk(html_dir):
             for file in files:
                 kind = mimetypes.guess_type(file)[0]
@@ -178,7 +214,8 @@ class NlbpubToPef(Pipeline):
                 fullpath = os.path.join(root, file)
                 relpath = os.path.relpath(fullpath, html_dir)
                 html_context[relpath] = fullpath
-
+        print("----html-context")
+        print(html_context)
         script_id = "nlb:html-to-pef"
         pipeline_and_script_version = [
             ("1.11.1-SNAPSHOT", "1.10.0-SNAPSHOT"),
@@ -188,7 +225,6 @@ class NlbpubToPef(Pipeline):
             "braille-standard": "(dots:6)(grade:0)",
             "line-spacing": line_spacing,
             "duplex": duplex,
-            "maximum-number-of-sheets": "72",
         }
 
         # for custom Statped options using NLBs PIP (remove `and False` or replace with `or True` to test)
@@ -216,6 +252,10 @@ class NlbpubToPef(Pipeline):
             # use DAISYs version of PIP instead
             script_id = "html-to-pef"
             pipeline_and_script_version = [
+                ("1.14.13", "6.1.0"), #added 22.06.23
+                ("1.14.11", "6.0.1"), #added 30.05.23
+                ("1.14.8", "6.0.0"),
+                ("1.14.7", "6.0.0"),
                 ("1.14.6", "5.0.1"),
                 ("1.14.5", None),
                 ("1.14.4", "4.2.0"),
@@ -229,21 +269,24 @@ class NlbpubToPef(Pipeline):
            ]
 
 
-            braille_arguments = {
+            """braille_arguments = {
                 "html": os.path.basename(html_file),
                 "transform": "(formatter:dotify)(translator:liblouis)(dots:6)(grade:0)",
                 "stylesheet": " ".join([
                     # 1. better volume breaking, and also removes title page and print toc, moves the colophon and copyright page to the end of the book
                    # "https://raw.githubusercontent.com/nlbdev/pipeline/nlb/nlb/book-to-pef/src/main/resources/xml/pre-processing.xsl",
+                       #TODO: uncommmented 22.05
                     "https://raw.githubusercontent.com/StatpedEPUB/nlb-scss/master/src/xslt/pre-processing.xsl",
 
                     #"https://raw.githubusercontent.com/daisy/pipeline/master/modules/braille/xml-to-pef/src/main/resources/xml/xslt/generate-toc.xsl",
 
                     # 3. NLB: Add table classes based on the dimensions of the table, for better handling of tables
+                       #TODO: uncommmented 22.05
                     "https://raw.githubusercontent.com/nlbdev/pipeline/nlb/nlb/book-to-pef/src/main/resources/xml/add-table-classes.xsl",
 
                     # 4. NLB: Generate a new title page and about page in the frontmatter
                     # "https://raw.githubusercontent.com/nlbdev/pipeline/nlb/nlb/book-to-pef/src/main/resources/xml/insert-boilerplate.xsl",
+                  #TODO: uncommmented 22.05
                    "https://raw.githubusercontent.com/StatpedEPUB/nlb-scss/master/src/xslt/insert-boilerplate.xsl",
                     # 5. Statped-specific SCSS
                     "https://raw.githubusercontent.com/StatpedEPUB/nlb-scss/master/src/scss/braille.scss",
@@ -253,9 +296,24 @@ class NlbpubToPef(Pipeline):
                 "toc-depth": '2',
 		"maximum-number-of-sheets": '50',
                 "include-production-notes" : 'true',
-                "hyphenation" : 'false',
+                "hyphenation" : 'auto',
                 "allow-volume-break-inside-leaf-section-factor" : '10',
 		"prefer-volume-break-before-higher-level-factor" : '1',
+                "stylesheet-parameters": "(skip-margin-top-of-page:true)",
+               }""" 
+
+            braille_arguments = {
+                "html": os.path.basename(html_file),
+                "transform": "(formatter:dotify)(translator:liblouis)(dots:6)(grade:0)",
+                "stylesheet": "braille.scss",
+                "page-width": '38',
+                "page-height": '29',
+                "toc-depth": '2',
+                "maximum-number-of-sheets": '50',
+                "include-production-notes" : 'true',
+                "hyphenation" : 'auto',
+                "allow-volume-break-inside-leaf-section-factor" : '10',
+                "prefer-volume-break-before-higher-level-factor" : '1',
                 "stylesheet-parameters": "(skip-margin-top-of-page:true)",
                }
 

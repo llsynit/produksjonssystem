@@ -44,16 +44,21 @@ from insert_metadata import (InsertMetadataBraille, InsertMetadataDaisy202,
 from magazines_to_validation import MagazinesToValidation
 from make_abstracts import Audio_Abstract  # noqa
 from newsletter import Newsletter  # noqa
+from newspaper_schibsted import DummyTtsNewspaperSchibsted, NewspaperSchibsted  # noqa
 from nlbpub_previous import NlbpubPrevious  # noqa
+from nlbpub_to_docx import NLBpubToDocx  # noqa
 from nlbpub_to_epub import NlbpubToEpub  # noqa
 from nlbpub_to_html import NlbpubToHtml  # noqa
 from nlbpub_to_narration_epub import NlbpubToNarrationEpub  # noqa
 from nlbpub_to_pef import NlbpubToPef  # noqa
 from nlbpub_to_tts_dtbook import NlbpubToTtsDtbook  # noqa
+# from nordic_dtbook_to_epub import NordicDTBookToEpub  # noqa
 from nordic_to_nlbpub import NordicToNlbpub  # noqa
 from prepare_for_braille import PrepareForBraille  # noqa
 from prepare_for_docx import PrepareForDocx  # noqa
 from prepare_for_ebook import PrepareForEbook
+from statped_nlbpub_to_nlbpub import StatpedNlbpubToNlbpub  # noqa
+# from update_metadata import UpdateMetadata  # noqa
 
 if sys.version_info[0] != 3 or sys.version_info[1] < 5:
     print("# This script requires Python version 3.5+")
@@ -135,7 +140,7 @@ class Produksjonssystem():
 
         # Configure email
         Config.set("email.sender.name", "NLBs Produksjonssystem")
-        Config.set("email.sender.address", "TL-administrator@nb.no")
+        Config.set("email.sender.address", "produksjonssystem@nlb.no")
         Config.set("email.smtp.host", os.environ.get("MAIL_SERVER", None))
         Config.set("email.smtp.port", os.environ.get("MAIL_PORT", None))
         Config.set("email.smtp.user", os.environ.get("MAIL_USERNAME", None))
@@ -149,6 +154,7 @@ class Produksjonssystem():
 
         # Special directories
         Config.set("master_dir", os.path.join(book_archive_dirs["master"], "master/EPUB"))
+        Config.set("newsfeed_dir", os.path.join(book_archive_dirs["master"], "innkommende/schibsted-aviser/avisfeeder"))
         Config.set("reports_dir", os.getenv("REPORTS_DIR", os.path.join(book_archive_dirs["master"], "rapporter")))
         Config.set("metadata_dir", os.getenv("METADATA_DIR", os.path.join(book_archive_dirs["master"], "metadata")))
         Config.set("nlbsamba.dir", os.environ.get("NLBSAMBA_DIR"))
@@ -163,9 +169,10 @@ class Produksjonssystem():
         })
         # self.dirs_ranked[-1]["dirs"]["incoming_NLBPUB"] = os.path.join(book_archive_dirs["master"], "innkommende/NLBPUB")
         # self.dirs_ranked[-1]["dirs"]["nlbpub_manuell"] = os.path.join(book_archive_dirs["master"], "mottakskontroll/NLBPUB")
-        self.dirs_ranked[-1]["dirs"]["incoming-nlb"] = os.path.join(book_archive_dirs["master"], "innkommende/nordisk-NLB")
+        self.dirs_ranked[-1]["dirs"]["incoming"] = os.path.join(book_archive_dirs["master"], "innkommende/nordisk")
         # self.dirs_ranked[-1]["dirs"]["incoming-for-approval"] = os.path.join(book_archive_dirs["master"], "innkommende/nordisk-manuell-mottakskontroll")
         self.dirs_ranked[-1]["dirs"]["old_dtbook"] = os.path.join(book_archive_dirs["master"], "grunnlagsfil/DTBook")
+        self.dirs_ranked[-1]["dirs"]["incoming-statped-nlbpub"] = os.path.join(book_archive_dirs["master"], "innkommende/statped-nlbpub")
 
         self.dirs_ranked.append({
             "id": "source-in",
@@ -189,6 +196,7 @@ class Produksjonssystem():
         # self.dirs_ranked[-1]["dirs"]["grunnlag"] = os.path.join(book_archive_dirs["master"], "grunnlagsfil/NLBPUB")
         self.dirs_ranked[-1]["dirs"]["nlbpub"] = os.path.join(book_archive_dirs["master"], "master/NLBPUB")
         self.dirs_ranked[-1]["dirs"]["epub_from_dtbook"] = os.path.join(book_archive_dirs["master"], "grunnlagsfil/EPUB-fra-DTBook")
+        self.dirs_ranked[-1]["dirs"]["news"] = Config.get("newsfeed_dir")
         self.dirs_ranked.append({
             "id": "version-control",
             "name": "Versjonskontroll",
@@ -216,6 +224,7 @@ class Produksjonssystem():
         self.dirs_ranked[-1]["dirs"]["pub-ready-magazine"] = os.path.join(book_archive_dirs["master"], "utgave-klargjort/tidsskrifter")
         self.dirs_ranked[-1]["dirs"]["epub_narration"] = os.path.join(book_archive_dirs["master"], "utgave-klargjort/EPUB-til-innlesing")
         self.dirs_ranked[-1]["dirs"]["dtbook_tts"] = os.path.join(book_archive_dirs["master"], "utgave-klargjort/DTBook-til-talesyntese")
+        self.dirs_ranked[-1]["dirs"]["dtbook_news"] = os.path.join(book_archive_dirs["master"], "utgave-klargjort/DTBook-aviser-til-talesyntese")
 
         self.dirs_ranked.append({
             "id": "publication-out",
@@ -229,12 +238,7 @@ class Produksjonssystem():
         self.dirs_ranked[-1]["dirs"]["docx"] = os.path.join(book_archive_dirs["master"], "utgave-ut/DOCX")
         self.dirs_ranked[-1]["dirs"]["daisy202"] = os.path.join(book_archive_dirs["share"], "daisy202")
         self.dirs_ranked[-1]["dirs"]["abstracts"] = os.path.join(book_archive_dirs["distribution"], "www/abstracts")
-        self.dirs_ranked[-1]["dirs"]["daisy202-ready"] = os.path.join(book_archive_dirs["master"], "utgave-klargjort/lydbok-til-validering")  # deprecated
-        self.dirs_ranked[-1]["dirs"]["daisy202-ready-narrated"] = os.path.join(book_archive_dirs["master"], "utgave-klargjort/lydbok-til-validering-innlest")
-        self.dirs_ranked[-1]["dirs"]["daisy202-ready-tts"] = os.path.join(book_archive_dirs["master"], "utgave-klargjort/lydbok-til-validering-TTS")
-        self.dirs_ranked[-1]["dirs"]["daisy202-ready-external"] = os.path.join(book_archive_dirs["master"], "utgave-klargjort/lydbok-til-validering-eksterne")
-        self.dirs_ranked[-1]["dirs"]["daisy202-ready-kabb"] = os.path.join(book_archive_dirs["master"], "utgave-klargjort/lydbok-til-validering-Kabb")
-        self.dirs_ranked[-1]["dirs"]["daisy202-ready-statped"] = os.path.join(book_archive_dirs["master"], "utgave-klargjort/lydbok-til-validering-Statped")
+        self.dirs_ranked[-1]["dirs"]["daisy202-ready"] = os.path.join(book_archive_dirs["master"], "utgave-klargjort/lydbok-til-validering")
         self.dirs_ranked[-1]["dirs"]["daisy202-dist"] = os.path.join(book_archive_dirs["share"], "daisy202")
 
         # Make a key/value version of dirs_ranked for convenience
@@ -256,6 +260,10 @@ class Produksjonssystem():
 
         # Define pipelines and input/output/report dirs
         self.pipelines = [
+            # Konvertering av gamle DTBøker til EPUB 3
+            # [NordicDTBookToEpub(retry_missing=True,
+            #                     only_when_idle=True),         "old_dtbook",          "epub_from_dtbook"],
+
             # Mottak, nordic guidelines 2015-1
             # [NLBPUB_incoming_validator(retry_all=True,
             #                            during_working_hours=True
@@ -267,14 +275,16 @@ class Produksjonssystem():
             #                labels=["EPUB"]),                  "nlbpub_manuell",      "grunnlag"],
             #  [NLBPUB_validator(overwrite=False),                              "grunnlag",            "nlbpub"],
 
-            [IncomingNordic(uid="incoming-nordic-nlb",
-                            retry_all=True,
+            [IncomingNordic(retry_all=True,
                             during_working_hours=True,
-                            during_night_and_weekend=True),       "incoming-nlb",     "master"],
+                            during_night_and_weekend=True),       "incoming",            "master"],
             [NordicToNlbpub(retry_missing=True,
                             overwrite=False,
                             during_working_hours=True,
                             during_night_and_weekend=True),   "master",              "nlbpub"],
+            [StatpedNlbpubToNlbpub(retry_all=True,
+                                   during_working_hours=True,
+                                   during_night_and_weekend=True),       "incoming-statped-nlbpub",            "nlbpub"],
 
             # Grunnlagsfiler
             [NlbpubPrevious(retry_missing=True),               "nlbpub",              "nlbpub-previous"],
@@ -290,6 +300,9 @@ class Produksjonssystem():
                              check_identifiers=True,
                              during_night_and_weekend=True,
                              during_working_hours=True),        "pub-in-ebook",        "pub-ready-ebook"],
+            [PrepareForDocx(retry_missing=True,
+                            check_identifiers=True,
+                            during_working_hours=True),         "pub-in-ebook",        "pub-ready-docx"],
             [NlbpubToEpub(retry_missing=True,
                           check_identifiers=True,
                           during_working_hours=True,
@@ -297,9 +310,13 @@ class Produksjonssystem():
             [NlbpubToHtml(retry_missing=True,
                           check_identifiers=True,
                           during_working_hours=True),           "pub-ready-ebook",     "html"],
+            [NLBpubToDocx(retry_missing=True,
+                          check_identifiers=True,
+                          during_working_hours=True),           "pub-ready-docx",      "docx"],
             [Newsletter(during_working_hours=True,
                         during_night_and_weekend=True),         None,                  "pub-ready-braille"],
-
+            [NewspaperSchibsted(during_working_hours=True,
+                                during_night_and_weekend=True), "news",                "dtbook_news"],
             # punktskrift
             [InsertMetadataBraille(retry_missing=True,
                                    check_identifiers=True,
@@ -329,36 +346,18 @@ class Produksjonssystem():
                                during_night_and_weekend=True),  "pub-in-audio",        "dtbook_tts"],
             [DummyPipeline("Talesyntese i Pipeline 1",
                            labels=["Lydbok"]),                  "dtbook_tts",          "daisy202"],
+            [DummyTtsNewspaperSchibsted("Talesyntese i Pipeline 1 for aviser",
+                                        labels=["Lydbok"]),     "dtbook_news",          "daisy202"],
 
             # lydutdrag
             [Audio_Abstract(retry_missing=True,
                             during_working_hours=True,
                             during_night_and_weekend=True),     "daisy202",            "abstracts"],
 
-            # lydbok-distribusjon
+            # lydbok distribusjon
             [Daisy202ToDistribution(retry_all=True,
                                     during_working_hours=True,
                                     during_night_and_weekend=True),       "daisy202-ready",            "daisy202-dist"],
-            [Daisy202ToDistribution(uid="daisy202-to-distribution-narrated",
-                                    retry_all=True,
-                                    during_working_hours=True,
-                                    during_night_and_weekend=True),       "daisy202-ready-narrated",   "daisy202-dist"],
-            [Daisy202ToDistribution(uid="daisy202-to-distribution-tts",
-                                    retry_all=True,
-                                    during_working_hours=True,
-                                    during_night_and_weekend=True),       "daisy202-ready-tts",        "daisy202-dist"],
-            [Daisy202ToDistribution(uid="daisy202-to-distribution-external",
-                                    retry_all=True,
-                                    during_working_hours=True,
-                                    during_night_and_weekend=True),       "daisy202-ready-external",   "daisy202-dist"],
-            [Daisy202ToDistribution(uid="daisy202-to-distribution-kabb",
-                                    retry_all=True,
-                                    during_working_hours=True,
-                                    during_night_and_weekend=True),       "daisy202-ready-kabb",       "daisy202-dist"],
-            [Daisy202ToDistribution(uid="daisy202-to-distribution-statped",
-                                    retry_all=True,
-                                    during_working_hours=True,
-                                    during_night_and_weekend=True),       "daisy202-ready-statped",    "daisy202-dist"],
             [MagazinesToValidation(retry_missing=False),       "pub-ready-magazine",            "daisy202-ready"],
         ]
 
@@ -366,23 +365,26 @@ class Produksjonssystem():
     production_lines = [
         {
             "id": "epub",
-            "name": "Bestilling og mottak av EPUB for NLB",
-            "steps": ["incoming-nordic-NLB", "dummy_manuellmottakskontroll", "nordic-epub-to-nlbpub"],
+            "name": "Bestilling og mottak av EPUB",
+            "steps": ["incoming-nordic", "dummy_manuellmottakskontroll", "nordic-epub-to-nlbpub"],
         },
         {
             "id": "narration",
             "name": "Innlesing",
-            "steps": ["insert-metadata-daisy202", "nlbpub-to-narration-epub", "dummy_innlesingmedhindenburg", "create-abstracts", "daisy202-to-distribution-narrated"],
-        },
-        {
-            "id": "narration-external",
-            "name": "Ekstern innlesing",
-            "steps": ["insert-metadata-daisy202", "nlbpub-to-narration-epub", "dummy_innlesingmedhindenburg", "create-abstracts", "daisy202-to-distribution-external"],
+            "steps": ["insert-metadata-daisy202", "nlbpub-to-narration-epub", "dummy_innlesingmedhindenburg", "create-abstracts", "daisy202-to-distribution"],
         },
         {
             "id": "tts",
             "name": "Talesyntese",
-            "steps": ["insert-metadata-daisy202", "nlbpub-to-tts-dtbook", "dummy_talesynteseipipeline1", "create-abstracts", "daisy202-to-distribution-tts"],
+            "steps": ["insert-metadata-daisy202", "nlbpub-to-tts-dtbook", "dummy_talesynteseipipeline1", "create-abstracts", "daisy202-to-distribution"],
+            "filters": {
+                "libraries": ["NLB"],
+            },
+        },
+        {
+            "id": "schibsted",
+            "name": "Schibsted-aviser",
+            "steps": ["newspaper-schibsted", "dummy_talesynteseipipeline1foraviser", "create-abstracts", "daisy202-to-distribution"],
             "filters": {
                 "libraries": ["NLB"],
             },
@@ -412,6 +414,14 @@ class Produksjonssystem():
             "id": "html",
             "name": "E-bøker som HTML",
             "steps": ["insert-metadata-xhtml", "prepare-for-ebook", "nlbpub-to-html"],
+            "filters": {
+                "libraries": ["Statped"],
+            },
+        },
+        {
+            "id": "docx",
+            "name": "E-bøker som DOCX",
+            "steps": ["insert-metadata-xhtml", "prepare-for-docx", "nlbpub-to-docx"],
             "filters": {
                 "libraries": ["Statped"],
             },

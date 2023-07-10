@@ -207,13 +207,13 @@ class Daisy202ToDistribution(Pipeline):
         first_head_class = nccdoc.xpath("string(//*[local-name()='h1'][1]/@class)")
         second_head = nccdoc.xpath("string(//*[local-name()='h1'][2])").lower()
 
-        accepted_second_head = ["lydbokavtalen", "audiobook agreement", "the audiobook agreement", "tigar announcement", "nlb", "jietnagirjesoahpamuš"]
+        accepted_second_head = ["lydbokavtalen", "audiobook agreement", "the audiobook agreement", "tigar announcement", "nlb"]
 
         if first_head_class != "title":
             self.utils.report.error(f"{edition_identifier} første heading {first_head_class} er ikke title")
             return False
 
-        if second_head not in accepted_second_head and library == "NLB" and creative_work_metadata["newspaper"] is False and not (creative_work_metadata["magazine"] is True and library == "KABB"):
+        if second_head not in accepted_second_head and library != "Statped" and creative_work_metadata["newspaper"] is False and not (creative_work_metadata["magazine"] is True and library == "KABB"):
             self.utils.report.error(f"{edition_identifier} andre heading {second_head} er ikke Lydbokavtalen, Audiobook agreement, eller Tigar announcement")
             return False
 
@@ -324,7 +324,6 @@ class Daisy202ToDistribution(Pipeline):
 
     def check_files(self, edition_identifier, files_book, library, temp_dir, multi_volume):
         playlist_extensions = ["m3u", "m3u8", "pls", "wpl", "xspf"]
-        files_checked = 0
         contains_playlist = False
         small_file = False
         for file_book in files_book:
@@ -347,27 +346,26 @@ class Daisy202ToDistribution(Pipeline):
                     os.remove(file_book_path)
                 else:
                     audio_file = os.path.join(temp_dir, file_book)
-                    if files_checked < 10:
-                        segment = AudioSegment.from_mp3(audio_file)
-                        if segment.channels != 1:
-                            self.utils.report.error(f"Boka {edition_identifier} har en lydfil ({file_book}) som ikke er single channel")
-                            return False
-                        accepted_sample_rate = [22050, 44100]
-                        accepted_bitrate = [31, 32, 33, 47, 48, 49, 63, 64, 65]  # kbps
-                        sample_rate = segment.frame_rate
-                        if sample_rate not in accepted_sample_rate:
-                            self.utils.report.error(f"Boka {edition_identifier} har en lydfil ({file_book}) som ikke har en riktig sample rate ({sample_rate})")
-                            return False
-                        f = MP3(audio_file)
-                        bitrate = round(f.info.bitrate/1000)
-                        if bitrate not in accepted_bitrate:
-                            self.utils.report.error(f"Boka {edition_identifier} har en lydfil ({file_book}) som ikke har en riktig bitrate ({bitrate} kbps)")
-                            return False
+                    segment = AudioSegment.from_mp3(audio_file)
+                    if segment.channels != 1:
+                        self.utils.report.error(f"Boka {edition_identifier} har en lydfil ({file_book}) som ikke er single channel")
+                        return False
+                    accepted_sample_rate = [22050, 44100]
+                    accepted_bitrate = [31, 32, 33, 47, 48, 49, 63, 64, 65]  # kbps
+                    sample_rate = segment.frame_rate
+                    if sample_rate not in accepted_sample_rate:
+                        self.utils.report.error(f"Boka {edition_identifier} har en lydfil ({file_book}) som ikke har en riktig sample rate ({sample_rate})")
+                        return False
+                    f = MP3(audio_file)
+                    bitrate = round(f.info.bitrate/1000)
+                    if bitrate not in accepted_bitrate:
+                        self.utils.report.error(f"Boka {edition_identifier} har en lydfil ({file_book}) som ikke har en riktig bitrate ({bitrate} kbps)")
+                        return False
                     file_size = os.path.getsize(audio_file)
                     if file_size >= 102400 and file_size <= 8388608:
                         small_file = True
-                    if file_size >= 681574400:
-                        self.utils.report.error(f"Boka {edition_identifier} har en lydfil ({file_book}) som er større enn 650MB")
+                    if file_size >= 104857600:
+                        self.utils.report.error(f"Boka {edition_identifier} har en lydfil ({file_book}) som er større enn 100MB")
                         return False
 
             elif file_book.endswith(".wav"):
@@ -379,7 +377,6 @@ class Daisy202ToDistribution(Pipeline):
                     if file_book.endswith(ext):
                         contains_playlist = True
                         os.rename(file_book_path, os.path.join(temp_dir, edition_identifier + "." + ext))
-            files_checked = files_checked + 1
 
         if contains_playlist is False and library != "Statped" and library != "KABB" and multi_volume is False:
             self.utils.report.error(f"Boka {edition_identifier} inneholder ingen playlist filer")
