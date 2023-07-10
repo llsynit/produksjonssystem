@@ -1,0 +1,10 @@
+config.env.example
+set-test-env.sh.example
+test_system.sh
+test_unit.sh
+test_xspec.sh
+test.sh
+tests
+generate-requirements.sh
+pylama.ini
+Jenkinsfile

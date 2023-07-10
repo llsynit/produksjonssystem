@@ -1,0 +1,48 @@
+version: '3'
+services:
+
+  pip1.14.4snapshot:
+    image: statpedslot/daisy-pip-1.14.4:1.14.4snapshot
+    restart: always
+    ports:
+      - "8383:8181"
+    environment:
+      - PIPELINE2_WS_HOST=0.0.0.0
+      - PIPELINE2_WS_AUTHENTICATION=false
+  nlbdev-pipeline2018-working-pip:
+    image: nlbdev/pipeline:2018-working-pip
+    restart: always
+    ports:
+      - "9000:8181"
+    environment:
+      - PIPELINE2_WS_HOST=0.0.0.0
+      - PIPELINE2_WS_AUTHENTICATION=false
+  pip1.11.1snapshot:
+    image: statpedslot/daisy-pip-1.11.1:1.11.1snapshot
+    restart: always
+    ports:
+      - "8282:8181"
+    environment:
+      - PIPELINE2_WS_HOST=0.0.0.0
+      - PIPELINE2_WS_AUTHENTICATION=false
+
+  produksjonssystem:
+    image: statpedslot/produksjonssystem:v1.0
+    restart: always
+    network_mode: host
+    ports:
+      - "3875:3875"
+    stdin_open: true
+    tty: true
+    env_file:
+      - .env
+    volumes:
+      - /volumepath:/usr/src/app/files
+    depends_on:
+        nlbdev-pipeline2018-working-pip:
+          condition: service_healthy
+        pip1.14.4snapshot:
+          condition: service_healthy
+
+
+
