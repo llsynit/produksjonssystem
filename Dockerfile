@@ -6,7 +6,7 @@ RUN apt-get update && apt-get install -y openjdk-8-jdk
 
 RUN apt-get install -y build-essential
 RUN apt-get -y install curl gnupg wget
-RUN apt-get -y update && apt-get install -y python-is-python3 python3-pip python3-distutils python3-dev libffi-dev
+RUN apt-get -y update && apt-get install -y python-is-python3 python3-pip python3-distutils python3-dev libffi-dev  xdg-utils libegl1 libopengl0
 
 RUN pip install setuptools --upgrade
 RUN pip install cryptography
@@ -19,9 +19,7 @@ apt-get install -y nodejs
 RUN npm install @daisy/ace -g
 
 
-
-RUN wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | sudo sh /dev/stdin | python -c "import sys; main=lambda:sys.stderr.write('Download failed\n'); exec(sys.stdin.read()); main()"
-
+RUN wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | sh /dev/stdin
 
 
 RUN apt-get install -qy cabextract xfonts-utils

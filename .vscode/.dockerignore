@@ -8,3 +8,5 @@ tests
 generate-requirements.sh
 pylama.ini
 Jenkinsfile
+docker-compose.yml.example
+docker-compose.yml
