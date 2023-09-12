@@ -44,6 +44,9 @@ ENV QUICKBASE_DUMP_DIR="/opt/quickbase"
 ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64/jre
 ENV EPUBCHECK_HOME="/opt/epubcheck"
 
+# Add HEALTHCHECK
+HEALTHCHECK --interval=30s --timeout=3s \
+  CMD curl -f http://localhost:3800/prodsys/v1/health || exit 1
 
 
 RUN pip install -r requirements.txt
