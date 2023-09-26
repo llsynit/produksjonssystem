@@ -18,6 +18,7 @@ from docx.oxml.ns import qn
 
 from lxml import etree as ElementTree
 
+
 from core.pipeline import Pipeline
 from core.utils.epub import Epub
 from core.utils.xslt import Xslt
@@ -72,11 +73,12 @@ class NLBpubToDocx(Pipeline):
             return False
 
         # language must be exctracted from epub or else docx default language (nb) wil be used in the converted file
-        language = ""
+        #language = ""
+        dummy = ""
         try:
            #language = " (" + epub.meta("dc:language") + ") "
-           language = epub.meta("dc:language")
-
+           #language = epub.meta("dc:language")
+            dummy = epub.meta("dc:language")
 
         except Exception:
             pass
@@ -120,6 +122,8 @@ class NLBpubToDocx(Pipeline):
             return False
         shutil.copy(temp_xml_file, html_file)
 
+
+
                 # ---------- konverter HTML-fila til DOCX ----------
 
         temp_docxdir_obj = tempfile.TemporaryDirectory()
@@ -149,7 +153,7 @@ class NLBpubToDocx(Pipeline):
                 "--docx-page-margin-left=70",
                 "--docx-page-margin-right=56",
                 #"--language="+epub.meta('dc:language'),
-                #("--language=" + language) if language else "",
+                #("--language=" + language) if language else "", test av language
                 "--base-font-size=13",
                 #"--remove-paragraph-spacing",
                 #"--remove-paragraph-spacing-indent-size=-1",
@@ -197,6 +201,12 @@ class NLBpubToDocx(Pipeline):
                     element.getparent().remove(element)
                     element._element = None
 
+                def isPageNr(element):
+                    return re.match(r"^--- \d+( til \d+)?$", element.text)
+
+                def isEmpty(element):
+                    return element.text.strip() == "" and not(element._element.xpath(".//w:hyperlink"))
+
                 indent = Cm(0.44)
                 hangingIndentList = Cm(0.63)
                 document.styles[normalParagraph].font.size = fontSize
@@ -214,10 +224,14 @@ class NLBpubToDocx(Pipeline):
                     paragraph.paragraph_format.keep_with_next = None
                     if re.match("Para 0[1-9]|[0-9] Block|Para [0-9]", paragraph.style.name) and paragraph.style.font.underline != True:
                         paragraph.style = normalParagraph
-                    if len(paragraph.text) <= 1 or re.match(r"^--- \d+ til ", paragraph.text) or paragraph.style.name[0:7] == "Heading": # if empty p or page nr or heading
-                        paragraph.text = re.sub(r"^\s(.*)", r"\1", paragraph.text)  #remove space at beginning av p
+                    if isEmpty(paragraph) or isPageNr(paragraph) or paragraph.style.name[0:7] == "Heading": # if empty p or page nr or heading
+                    # if len(paragraph.text) <= 1 or isPageNr(paragraph) or paragraph.style.name[0:7] == "Heading": # if empty p or page nr or heading
+                        paragraph.text = paragraph.text.strip() # added 26.09.23. docx 012
+                        #paragraph.text = re.sub(r"^\s(.*)", r"\1", paragraph.text)  #remove space at beginning av p <p><a>statped.no</a></p> <p><a></a>
                        # self.utils.report.info("Paragraph.text <= 1 ")
-                        if len(paragraph.text) == 0 and emptyParagraph: #if last p also was empty or page nr
+                        # edited 2023-09-20
+                        if isEmpty(paragraph) and emptyParagraph: #if last p also was empty or page nr
+                        # if len(paragraph.text) == 0 and emptyParagraph: #if last p also was empty or page nr
                     #        self.utils.report.info("Paragraph.text == 0 ")
                             delete_paragraph(paragraph)
                         emptyParagraph = True
@@ -240,7 +254,7 @@ class NLBpubToDocx(Pipeline):
                             delete_element(breakBeforeParagraphEndList[0])
 
                     t = paragraph.text.strip()
-                    if re.match(r"^Bilde: |^Forklaring: |^--- \d+ til |^_[^_]*_$|^STATPED_DUMMYTEXT_LIST_UNSTYLED|^STATPED_DUMMYTEXT_P_BEFORE_DL", t) or ((removeIndent or len(t)==0) and paragraph.style.name == "Normal"):
+                    if re.match(r"^Bilde: |^Forklaring: |^--- \d+ til |^_[^_]*_$|^STATPED_DUMMYTEXT_LIST_UNSTYLED|^STATPED_DUMMYTEXT_P_BEFORE_DL", t) or ((removeIndent or isEmpty(paragraph)) and paragraph.style.name == "Normal"):
                         paragraph.style = normalParagraphNoIndent
                     # Remove dummy-text and set hengemarg
                     if re.match(r"^(STATPED_DUMMYTEXT_LIST_UNSTYLED|STATPED_DUMMYTEXT_DL)", paragraph.text):

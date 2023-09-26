@@ -4,7 +4,11 @@
 
 # test logs/results
 /test.log
-/test-*
+/tests-*
+
+docs
+test
+test.sh
 
 __pycache__
 *.pyc
