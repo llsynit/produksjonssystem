@@ -76,9 +76,7 @@
         <xsl:variable name="movePageBefore" as="xs:boolean" select="matches($element/name(), 'h[1-6]|table|th|td') or exists($element/ancestor::section[f:types(.)='toc']/ol[@class='list-type-none'])" />
         <xsl:value-of select="$movePageBefore" />
     </xsl:function>
-    <!--<xsl:template match="*[f:movePageBefore(.)=true() and (.//span[@epub:type = 'pagebreak'] or .//div[@epub:type = 'pagebreak']) and f:movePageTopLevel(.)=true()]" priority="2"> removed on 08.12.23 solve the issue of span in p  -->
-
-    <xsl:template match="*[not(self::p) and f:movePageBefore(.)=true() and (.//span[@epub:type = 'pagebreak'] or .//div[@epub:type = 'pagebreak']) and f:movePageTopLevel(.)=true()]" priority="2">
+    <xsl:template match="*[f:movePageBefore(.)=true() and (.//span[@epub:type = 'pagebreak'] or .//div[@epub:type = 'pagebreak']) and f:movePageTopLevel(.)=true()]" priority="2">
         <xsl:for-each select=".//(./span | ./div)[@epub:type = 'pagebreak']">
             <xsl:call-template name="create-pagebreak">
                <xsl:with-param name="element" select="." />
@@ -124,7 +122,7 @@
    <xsl:template match="figcaption/p[f:movePageBefore(.)=false()] | figure[f:classes(.) = 'image']/aside/p[f:movePageBefore(.)=false()] | caption/p[f:movePageBefore(.)=false()]" priority="3">
       <xsl:apply-templates/>
       <xsl:if test="position() != last() and not(exists(following-sibling::*[1][name() = 'ol' or name() = 'ul' or name() = 'table']))">
-         <br/>
+         <br/>         
       </xsl:if>
       <xsl:for-each select="descendant::span[f:types(.) = 'pagebreak']">
          <xsl:call-template name="create-pagebreak">
@@ -143,15 +141,9 @@
       </xsl:copy>
    </xsl:template>
 
-   <xsl:template match="aside[f:classes(.) = 'sidebar'] | div[f:classes(.) = 'linegroup']">
+   <xsl:template match="aside[f:classes(.) = 'sidebar'] | div[f:classes(.) = 'linegroup'] | div[f:classes(.) = 'ramme'] | div[f:classes(.) = 'generisk-ramme']">
       <p/>
       <xsl:next-match/>
-   </xsl:template>
-   <!-- Inserted 2023-09-20. Kvile and Stephen. Moved from template above. Added empty p at end -->
-   <xsl:template match="div[f:classes(.) = 'ramme'] | div[f:classes(.) = 'generisk-ramme']">
-      <p/>
-      <xsl:next-match/>
-      <p/>
    </xsl:template>
    <xsl:template match="aside[f:classes(.) = 'glossary']/*[matches(name(), 'h[1-6]')]">
       <p>
@@ -167,7 +159,7 @@
          <xsl:apply-templates select="node()"/>
       </xsl:copy>
    </xsl:template>
-
+ 
    <xsl:function name="f:imgAlt">
       <xsl:param name="element" as="element()"/>
       <xsl:choose>
@@ -245,7 +237,7 @@
          <xsl:apply-templates/>
       </p>
    </xsl:template>
-
+ 
    <xsl:template match="ol[parent::section[f:types(.) = 'toc']]" priority="10">
       <xsl:for-each select="descendant::span[f:types(.) = 'pagebreak']">
          <xsl:call-template name="create-pagebreak"/>
@@ -409,13 +401,13 @@
          <p/>
 
 <!-- ny tekst -  test nnorsk eller norsk -->
-
+   
 
          <xsl:choose>
          <xsl:when test="//meta[@name='dc:language']/string(@content)= 'nn'">
            <p>
               <span xml:lang="nn" lang="nn">Opphavsrett Statped:<br>Denne boka er lagd til rette for elevar med synssvekking. Ifølgje lov om opphavsrett kan ho ikkje brukast av andre. Teksten er tilpassa for lesing med skjermlesar og leselist. Kopiering er berre tillate til eige bruk. Brot på desse avtalevilkåra, slik som ulovleg kopiering eller medverknad til ulovleg kopiering, kan medføre ansvar etter åndsverklova.</br></span>
-
+              
             </p>
 
              </xsl:when>
@@ -429,12 +421,12 @@
           </xsl:otherwise>
 
        </xsl:choose>
+   
 
-
-
+        
       </xsl:copy>
    </xsl:template>
-
+   
    <xsl:template match="section[f:types(.) = 'colophon']/*[matches(name(), 'h[1-6]')]" />
 
    <xsl:template match="em | strong">
@@ -511,12 +503,10 @@
 
    <!-- remove sound-text, blocks inside /.../ or [...] -->
    <xsl:template match="dt//text() | dd//text()">
-      <!-- Replaced the regex below. 2023-09-20. Kvile and Stephen -->
-      <xsl:variable name="textValue" select="replace(., '\s/\S[^/]*?/', '')"/>
-      <!-- <xsl:variable name="textValue" select="replace(., '/[^/]*?/', '')"/> -->
-      <xsl:variable name="textValue" select="replace($textValue, '\s\[[^\]]*?\]', '')"/>
-      <xsl:variable name="textValue" select="replace($textValue, ':\s*$', ': ')"/>
-      <!-- <xsl:variable name="textValue" select="replace($textValue, '^\s*:\s*', ': ')"/> -->
+      <xsl:variable name="textValue" select="replace(., '/[^/]*?/', '')"/>
+      <xsl:variable name="textValue" select="replace($textValue, '\[[^\]]*?\]', '')"/>
+      <xsl:variable name="textValue" select="replace($textValue, '\s*:\s*$', ': ')"/>
+      <xsl:variable name="textValue" select="replace($textValue, '^\s*:\s*', ': ')"/>
       <xsl:value-of select="replace($textValue, '\[[^\]]*?\]', '')"/>
    </xsl:template>
    <xsl:template match="dt" priority="10">

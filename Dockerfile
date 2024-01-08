@@ -24,8 +24,11 @@ RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - &&\
   npm install @daisy/ace -g
 
 
-RUN wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | sh /dev/stdin &&\
-  apt-get install -qy cabextract xfonts-utils &&\
+#RUN wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | sh /dev/stdin
+#VERSION  7.1.0. fails to install
+RUN  wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | sh /dev/stdin version=6.26.0
+
+RUN apt-get install -qy cabextract xfonts-utils &&\
   wget http://ftp.de.debian.org/debian/pool/contrib/m/msttcorefonts/ttf-mscorefonts-installer_3.8.1_all.deb &&\
   dpkg -i ttf-mscorefonts-installer_3.8.1_all.deb &&\
   apt-get install -y graphviz libavcodec-extra ffmpeg libxml2-dev libxslt1-dev

@@ -29,6 +29,8 @@ xslt/**/*-result.xml
 
 env/
 
+venv/
+
 
 epubcheck-5.0.0
 

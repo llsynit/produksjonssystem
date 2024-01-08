@@ -170,7 +170,7 @@ class NlbpubToPef(Pipeline):
         xml_parser = ElementTree.XMLParser(encoding="utf-8")
         html_xml = ElementTree.parse(html_file, parser=xml_parser).getroot()
         identifier = html_xml.xpath("/*/*[local-name()='head']/*[@name='dc:identifier']")
-        
+
 
         metadata = Metadata.get_metadata_from_book(self.utils.report, temp_htmldir)
 
@@ -252,6 +252,7 @@ class NlbpubToPef(Pipeline):
             # use DAISYs version of PIP instead
             script_id = "html-to-pef"
             pipeline_and_script_version = [
+                ("1.14.15", "6.1.1"), #added 21.12.23
                 ("1.14.13", "6.1.0"), #added 22.06.23
                 ("1.14.11", "6.0.1"), #added 30.05.23
                 ("1.14.8", "6.0.0"),
@@ -300,7 +301,7 @@ class NlbpubToPef(Pipeline):
                 "allow-volume-break-inside-leaf-section-factor" : '10',
 		"prefer-volume-break-before-higher-level-factor" : '1',
                 "stylesheet-parameters": "(skip-margin-top-of-page:true)",
-               }""" 
+               }"""
 
             braille_arguments = {
                 "html": os.path.basename(html_file),
@@ -312,6 +313,7 @@ class NlbpubToPef(Pipeline):
                 "maximum-number-of-sheets": '50',
                 "include-production-notes" : 'true',
                 "hyphenation" : 'auto',
+                "include-preview": 'true',
                 "allow-volume-break-inside-leaf-section-factor" : '10',
                 "prefer-volume-break-before-higher-level-factor" : '1',
                 "stylesheet-parameters": "(skip-margin-top-of-page:true)",
@@ -333,9 +335,10 @@ class NlbpubToPef(Pipeline):
 
             # get conversion report
             if os.path.isdir(os.path.join(dp2_job.dir_output, "preview-output-dir")):
-                Filesystem.copy(self.utils.report,
-                                os.path.join(dp2_job.dir_output, "preview-output-dir"),
-                                os.path.join(self.utils.report.reportDir(), "preview"))
+                #save pef-priveiw to utgave-ut PEF instead of report.
+                #Filesystem.copy(self.utils.report,
+                #                os.path.join(dp2_job.dir_output, "preview-output-dir"),
+                #                os.path.join(self.utils.report.reportDir(), "preview"))
                 self.utils.report.attachment(None,
                                              os.path.join(self.utils.report.reportDir(), "preview" + "/" + identifier + ".pef.html"),
                                              "SUCCESS" if dp2_job.status == "SUCCESS" else "ERROR")
@@ -389,6 +392,12 @@ class NlbpubToPef(Pipeline):
 
         self.utils.report.info("Kopierer til PEF-arkiv.")
         archived_path, stored = self.utils.filesystem.storeBook(pef_tempdir_object.name, identifier)
+        if os.path.isdir(os.path.join(dp2_job.dir_output, "preview-output-dir")):
+                #save pef-priveiw to utgave-ut PEF instead of report.
+                self.utils.report.info("Save pef preview to same folder as the pef file.")
+                Filesystem.copy(self.utils.report,
+                            os.path.join(dp2_job.dir_output, "preview-output-dir"),
+                            os.path.join(archived_path, "preview"))
         self.utils.report.attachment(None, archived_path, "DEBUG")
 
         self.utils.report.title = self.title + ": " + identifier + " ble konvertert 👍😄" + bookTitle

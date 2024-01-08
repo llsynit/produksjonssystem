@@ -222,7 +222,7 @@ class NLBpubToDocx(Pipeline):
                     for emptyTextElement in emptyTextElementList:
                         delete_element(emptyTextElement)
                     paragraph.paragraph_format.keep_with_next = None
-                    if re.match("Para 0[1-9]|[0-9] Block|Para [0-9]", paragraph.style.name) and paragraph.style.font.underline != True:
+                    if re.match("Para 0[1-9]|[0-9] Block|Para [0-9]", paragraph.style.name): # and paragraph.style.font.underline != True: #TODO 08.12.23 this line and line 285 commented out -- probable effect will be that link will not look like a link.
                         paragraph.style = normalParagraph
                     if isEmpty(paragraph) or isPageNr(paragraph) or paragraph.style.name[0:7] == "Heading": # if empty p or page nr or heading
                     # if len(paragraph.text) <= 1 or isPageNr(paragraph) or paragraph.style.name[0:7] == "Heading": # if empty p or page nr or heading
@@ -282,7 +282,7 @@ class NLBpubToDocx(Pipeline):
                         spacing.set(qn('w:beforeLines'), "0")
                         spacing.set(qn('w:afterLines'), "0")
                     if style.name[0:5] == "Para ":
-                        if style.font.underline != True:
+                        #if style.font.underline != True: commented out 08.12.23
                             paraStylesWithoutUnderline.append(style.name)
                             if style.font.bold != True:
                                 paraStylesWithoutBoldOrUnderline.append(style.name)

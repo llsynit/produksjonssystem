@@ -5,20 +5,20 @@
 		xmlns:k="k"
                 xmlns="http://www.w3.org/1999/xhtml"
                 xpath-default-namespace="http://www.w3.org/1999/xhtml"
-                exclude-result-prefixes="#all" 
+                exclude-result-prefixes="#all"
                 version="2.0">
-    
+
     <xsl:output indent="no" method="xhtml" include-content-type="no"/>
-    
+
     <xsl:variable name="urls" select="document('url-fix.xml')/*/*" as="element()*"/>
-    
+
     <xsl:template match="@* | node()">
         <xsl:copy exclude-result-prefixes="#all">
             <xsl:apply-templates select="@* | node()"/>
         </xsl:copy>
     </xsl:template>
-    
-   
+
+
   <xsl:template match="span[@class = 'asciimath']">
     <xsl:variable name="ascii" select="."/>
     <span>
@@ -160,7 +160,7 @@
     </xsl:variable>
     <xsl:variable name="c" as="xs:string" select="string-join($fragmenter, '')"/>
     <xsl:variable name="c" as="xs:string" select="k:numberSeparator($c)"/>
-    <xsl:variable name="c" as="xs:string" select="k:bigFraction($c)"/>
+    <!-- <xsl:variable name="c" as="xs:string" select="k:bigFraction($c)"/> commented on 08.12.23 after 09.23 changes-->
     <xsl:variable name="c" as="xs:string" select="replace($c, ';=', '; =')"/>
     <!-- non breakable space -->
     <xsl:variable name="c" as="xs:string" select="replace($c, ' \*', '&#160;*')"/>
@@ -239,7 +239,7 @@
     <xsl:variable name="return" as="xs:string" select="string-join($fragmenter, '=')"/>
     <xsl:value-of select="$return"/>
   </xsl:function>
-    
+
   <xsl:function name="k:numberSeparator">
     <xsl:param name="c" as="xs:string"/>
     <!-- decimal separator -->
