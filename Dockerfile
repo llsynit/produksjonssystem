@@ -12,14 +12,16 @@ RUN apt-get update && apt-get clean
 RUN apt-get -y update && apt-get install -y build-essential curl gnupg wget python-is-python3 python3-pip python3-distutils python3-dev libffi-dev  xdg-utils libegl1 libopengl0 &&\
   pip install setuptools --upgrade &&\
   pip install cryptography &&\
+  apt-get install nano -y &&\
   apt-get install -y openjdk-8-jdk
 
 #RUN pip install cryptography
 
 # We don't need the standalone Chromium
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD true
-
+#LTS (Long-Term Support) versions and will receive updates and support for an extended period. lts takes longer to install
 RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - &&\
+#RUN curl -sL https://deb.nodesource.com/setup_16.x | bash - &&\
   apt-get install -y nodejs &&\
   npm install @daisy/ace -g
 

@@ -600,17 +600,18 @@ doctitle, h1[epub|type~='fulltitle'], h1[epub|type~='z3998:covertitle'], docauth
     strong, b {
         @if ($include-em) {
           /*  text-transform: strong;*/
-          /* NB! strong and em shall both have 23...56 */
+          /* NB! strong and em shall both have 23...56*/
           text-transform: -louis-italic;
             :root:not(:has(em, i)) & {
                 text-transform: -louis-italic;
             }
         } @else {
-           /* text-transform: em; */
+           /* text-transform: em;*/
             text-transform: -louis-italic;
         }
     }
 }
+
 
 @if ($include-em) {
     em, i {

@@ -7,6 +7,8 @@ import sys
 import tempfile
 
 from lxml import etree as ElementTree
+from bs4 import BeautifulSoup
+
 
 from core.pipeline import Pipeline
 from core.utils.epub import Epub
@@ -91,6 +93,7 @@ class PrepareForDocx(Pipeline):
 
         temp_html_obj = tempfile.NamedTemporaryFile()
         temp_html = temp_html_obj.name
+
 
         xslt = Xslt(self,
                     stylesheet=os.path.join(Xslt.xslt_dir, PrepareForDocx.uid, "prepare-for-docx.xsl"),

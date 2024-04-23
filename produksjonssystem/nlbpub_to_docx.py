@@ -10,6 +10,7 @@ import traceback
 import zipfile
 
 import re
+from bs4 import BeautifulSoup
 
 from docx import Document
 from docx.shared import Inches, Cm, Pt, RGBColor
@@ -121,7 +122,6 @@ class NLBpubToDocx(Pipeline):
         if not xslt.success:
             return False
         shutil.copy(temp_xml_file, html_file)
-
 
 
                 # ---------- konverter HTML-fila til DOCX ----------

@@ -138,6 +138,9 @@ class PrepareForBraille(Pipeline):
             return False
         shutil.copy(temp_html, html_file)
 
+        #-----remove spaces in numbers and insert . e.g 40 000 -> 40.000--
+
+
         # ---------- hent nytt boknummer fra /html/head/meta[@name='dc:identifier'] og bruk som filnavn ----------
 
         xml_parser = ElementTree.XMLParser(encoding="utf-8")

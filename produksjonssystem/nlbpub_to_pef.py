@@ -6,6 +6,7 @@ import os
 import sys
 import tempfile
 import traceback
+import pika
 from typing import List, Optional, Tuple
 
 from lxml import etree as ElementTree
@@ -16,6 +17,7 @@ from core.utils.metadata import Metadata
 from core.utils.daisy_pipeline import DaisyPipelineJob
 from core.utils.filesystem import Filesystem
 from prepare_for_braille import PrepareForBraille
+from core.rabbitmq_receiver import check_braille_filename_in_queues
 
 if sys.version_info[0] != 3 or sys.version_info[1] < 5:
     print("# This script requires Python version 3.5+")
@@ -147,7 +149,6 @@ class NlbpubToPef(Pipeline):
 
     def on_book(self):
         self.utils.report.attachment(None, self.book["source"], "DEBUG")
-
         self.utils.report.info("Lager en kopi av filsettet")
         temp_htmldir_obj = tempfile.TemporaryDirectory()
         temp_htmldir = temp_htmldir_obj.name
@@ -196,12 +197,43 @@ class NlbpubToPef(Pipeline):
         epub_identifier = html_xml.xpath("/*/*[local-name()='head']/*[@name='nlbprod:identifier.epub']")
         epub_identifier = epub_identifier[0].attrib["content"] if epub_identifier and "content" in epub_identifier[0].attrib else None
 
+        #----Start rabbitmq-----#
+        braille_arguments_from_queue = {}
+        self.utils.report.info("Getting values RabbitMQ queue...")
+        option = check_braille_filename_in_queues(os.path.basename(html_file))
+        if option is not None:
+            # Get braille_arguments from the message
+            print("File name found in the queue" )
+            if option=="html":
+                braille_arguments_from_queue["html"] = os.path.basename(html_file)
+            else:
+                braille_arguments_from_queue["source"] = os.path.basename(html_file)
+            braille_arguments_from_queue["transform"] = "(formatter:dotify)(translator:liblouis)(dots:6)(grade:0)"
+            braille_arguments_from_queue["stylesheet"] = "braille.scss"
+            braille_arguments_from_queue["page-width"] = '38'
+            braille_arguments_from_queue["page-height"] = '29'
+            braille_arguments_from_queue["toc-depth"] = '2'
+            braille_arguments_from_queue["maximum-number-of-sheets"] = '50'
+            braille_arguments_from_queue["include-production-notes"] = 'true'
+            braille_arguments_from_queue["hyphenation"] = 'auto'
+            braille_arguments_from_queue["include-preview"] = 'true'
+            braille_arguments_from_queue["allow-volume-break-inside-leaf-section-factor"] = '10'
+            braille_arguments_from_queue["prefer-volume-break-before-higher-level-factor"] = '1'
+            braille_arguments_from_queue["stylesheet-parameters"] = "(skip-margin-top-of-page:true)"
+            print("Braille arguments from the queue:", braille_arguments_from_queue)
+
+        else:
+            print(f"{os.path.basename(html_file)} not found in the queue.")
+            self.utils.report.info(f"{os.path.basename(html_file)} not found from rb queue. Default values will be used.")
+
+        self.utils.report.info("Continue with the rest of the code...")
+        #----End rabbitmq-----#
+
+
         # ---------- konverter til PEF ----------
 
         # create context for Pipeline 2 job
         html_dir = os.path.dirname(html_file)
-        print("html_file directory")
-        print(html_dir)
         #html_context = {}
         html_context = {
             "braille.scss": os.path.join(Xslt.xslt_dir, PrepareForBraille.uid, "braille.scss")
@@ -214,8 +246,7 @@ class NlbpubToPef(Pipeline):
                 fullpath = os.path.join(root, file)
                 relpath = os.path.relpath(fullpath, html_dir)
                 html_context[relpath] = fullpath
-        print("----html-context")
-        print(html_context)
+
         script_id = "nlb:html-to-pef"
         pipeline_and_script_version = [
             ("1.11.1-SNAPSHOT", "1.10.0-SNAPSHOT"),
@@ -251,8 +282,11 @@ class NlbpubToPef(Pipeline):
         if metadata["library"].lower() == "statped" and True:
             # use DAISYs version of PIP instead
             script_id = "html-to-pef"
-            pipeline_and_script_version = [
+            """pipeline_and_script_version = [
+
+                ("1.14.17-p2-SNAPSHOT", "6.2.0"), #added 07.04.24
                 ("1.14.15", "6.1.1"), #added 21.12.23
+                ("1.14.14", "6.1.0"), #added 07.04.24 (html not source)
                 ("1.14.13", "6.1.0"), #added 22.06.23
                 ("1.14.11", "6.0.1"), #added 30.05.23
                 ("1.14.8", "6.0.0"),
@@ -267,7 +301,14 @@ class NlbpubToPef(Pipeline):
                 ("1.13.4", "1.4.5"),
                 ("1.12.1", "1.4.2"),
                 ("1.11.1-SNAPSHOT", "1.3.0"),
+           ]"""
+            pipeline_and_script_version = [
+
+                ("1.14.17-p2-SNAPSHOT", "6.2.0"), #added 07.04.24
+
+
            ]
+
 
 
             """braille_arguments = {
@@ -302,25 +343,37 @@ class NlbpubToPef(Pipeline):
 		"prefer-volume-break-before-higher-level-factor" : '1',
                 "stylesheet-parameters": "(skip-margin-top-of-page:true)",
                }"""
+            if not braille_arguments_from_queue:
+                print("Braille arguments from the queue is empty: Using default braille arguments")
+                self.utils.report.info("Braille arguments from the queue is empty: Using default braille arguments")
+                braille_arguments = {
+                    #"html": os.path.basename(html_file), #for versions 1.14.14 and old versions
+                    "source": os.path.basename(html_file), #from version 1.14.15 and newer versions
+                    "transform": "(formatter:dotify)(translator:liblouis)(dots:6)(grade:0)",
+                    "stylesheet": "braille.scss",
+                    "page-width": '38',
+                    "page-height": '29',
+                    "toc-depth": '2',
+                    "maximum-number-of-sheets": '50',
+                    "include-production-notes" : 'true',
+                    "hyphenation" : 'none',
+                    "include-preview": 'true',
+                    "hyphenation-at-page-breaks" : 'except-at-volume-breaks',
+                    "allow-volume-break-inside-leaf-section-factor" : '10',
+                    "prefer-volume-break-before-higher-level-factor" : '1',
+                    "stylesheet-parameters": "(skip-margin-top-of-page:true)",
+                }
+            else:
+                braille_arguments = braille_arguments_from_queue
+                print("Braille arguments from the queue:", braille_arguments)
+                self.utils.report.info("Braille arguments from the queue:", braille_arguments)
 
-            braille_arguments = {
-                "html": os.path.basename(html_file),
-                "transform": "(formatter:dotify)(translator:liblouis)(dots:6)(grade:0)",
-                "stylesheet": "braille.scss",
-                "page-width": '38',
-                "page-height": '29',
-                "toc-depth": '2',
-                "maximum-number-of-sheets": '50',
-                "include-production-notes" : 'true',
-                "hyphenation" : 'auto',
-                "include-preview": 'true',
-                "allow-volume-break-inside-leaf-section-factor" : '10',
-                "prefer-volume-break-before-higher-level-factor" : '1',
-                "stylesheet-parameters": "(skip-margin-top-of-page:true)",
-               }
-
+        #"hyphenation" : 'false',
+        #"allow-volume-break-inside-leaf-section-factor" : '10',
+		#"prefer-volume-break-before-higher-level-factor" : '1',
+        #"stylesheet-parameters": "(skip-margin-top-of-page:true)",
         pef_tempdir_object = tempfile.TemporaryDirectory()
-
+        self.utils.report.info("Konverterer fra HTML til PEF...with new page-width and page-height")
         self.utils.report.info("Konverterer fra HTML til PEF...")
         found_pipeline_version = None
         found_script_version = None
@@ -347,11 +400,18 @@ class NlbpubToPef(Pipeline):
                 self.utils.report.info("Klarte ikke å konvertere boken")
                 self.utils.report.title = self.title + ": " + identifier + " feilet 😭👎" + bookTitle
                 return False
-
+            print("Files in the output folder:")
+            for f in os.listdir(dp2_job.dir_output):
+                print(f)
             dp2_pef_dir = os.path.join(dp2_job.dir_output, "pef-output-dir")
             dp2_new_pef_dir = os.path.join(dp2_job.dir_output, "output-dir")
+            #for pip version 1.14.15 and newer
+            dp2_result_dir = os.path.join(dp2_job.dir_output, "result")
             if not os.path.exists(dp2_pef_dir) and os.path.exists(dp2_new_pef_dir):
                 dp2_pef_dir = dp2_new_pef_dir
+
+            if not os.path.exists(dp2_pef_dir) and not os.path.exists(dp2_new_pef_dir):
+                dp2_pef_dir = dp2_result_dir
 
             if not os.path.isdir(dp2_pef_dir):
                 self.utils.report.info("Finner ikke den konverterte boken.")
@@ -398,6 +458,12 @@ class NlbpubToPef(Pipeline):
                 Filesystem.copy(self.utils.report,
                             os.path.join(dp2_job.dir_output, "preview-output-dir"),
                             os.path.join(archived_path, "preview"))
+        else:
+            self.utils.report.info("Dealing with pip newer than 1.14.14(preview in preview folder). Save pef preview to same folder as the pef file.")
+            Filesystem.copy(self.utils.report,
+                            os.path.join(dp2_job.dir_output, "preview"),
+                            os.path.join(archived_path, "preview"))
+
         self.utils.report.attachment(None, archived_path, "DEBUG")
 
         self.utils.report.title = self.title + ": " + identifier + " ble konvertert 👍😄" + bookTitle

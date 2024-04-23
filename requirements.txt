@@ -115,3 +115,6 @@ yarl==1.8.1
     # via aiohttp
 zipp==3.8.1
     # via importlib-metadata
+beautifulsoup4==4.12.3
+soupsieve==2.5
+pika==1.3.2

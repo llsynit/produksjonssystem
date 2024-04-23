@@ -548,7 +548,6 @@ class DaisyPipelineJob():
                         option_xml += "<item value=\"{}\"/>".format(value)
                 option_xml += "</option>"
                 jobRequest.append(ElementTree.XML(option_xml))
-
         # Temporary files
         jobRequest_file_obj = tempfile.NamedTemporaryFile(suffix=".xml")
         context_file_obj = tempfile.NamedTemporaryFile(suffix=".zip")

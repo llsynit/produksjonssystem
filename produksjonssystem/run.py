@@ -24,6 +24,7 @@ import core.endpoints.health  # noqa
 import core.endpoints.lines  # noqa
 import core.endpoints.steps  # noqa
 import core.server  # noqa
+import core.rabbitmq_receiver  # noqa
 
 from core.config import Config  # noqa
 from core.directory import Directory  # noqa
@@ -467,6 +468,10 @@ class Produksjonssystem():
                     "Book archives can not contain eachother ({} contains or is contained by {})".format(self.book_archive_dirs[a], self.book_archive_dirs[d]))
         for d in self.dirs:
             self.dirs[d] = os.path.normpath(self.dirs[d])
+        print("-----------(self.book_archive_dirs")
+        print(self.book_archive_dirs)
+        print("¨¨¨¨¨¨¨¨*** self.dirs")
+        print(self.dirs)
         for d in self.dirs:
             if not d == "reports":
                 assert [a for a in self.book_archive_dirs if self.dirs[d].startswith(self.book_archive_dirs[a])], (
@@ -517,25 +522,41 @@ class Produksjonssystem():
         self.shouldRun(True)
 
         self.server = core.server.start(hot_reload=False, airbrake_config=self.airbrake_config, shutdown_function=self.stop)
+        #added 05.03.2024
+        #Using rabbitmq to send messages to receive messages(parameters to various production pipelines) from the dashboard
+        #self.rabbitmq_receiver = core.rabbitmq_receiver.start()
+        #self.rabbitmq_receiver = core.rabbitmq_receiver.join()
+
+
+
+        #self._configThread = Thread(target=self._rabbitmq_thread, name="rabbitmq")
+        #self._configThread.setDaemon(True) #deprecated
+        #self._configThread.daemon = True
+        #self._configThread.start()
+
 
         self._configThread = Thread(target=self._config_thread, name="config")
-        self._configThread.setDaemon(True)
+        #self._configThread.setDaemon(True) #deprecated
+        self._configThread.daemon = True
         self._configThread.start()
 
         Config.set("dailyReports.enabled", os.environ.get("DAILY_REPORTS_ENABLED", "true").lower() in ["true", "1"])
         if Config.get("dailyReports.enabled"):
             self._dailyReportThread = Thread(target=self._daily_report_thread, name="daily report")
-            self._dailyReportThread.setDaemon(True)
+            #self._dailyReportThread.setDaemon(True)
+            self._dailyReportThread.daemon=True
             self._dailyReportThread.start()
 
         self._systemStatusThread = Thread(target=self._system_status_thread, name="system status")
-        self._systemStatusThread.setDaemon(True)
+        #self._systemStatusThread.setDaemon(True)
+        self._systemStatusThread.daemon=True
         self._systemStatusThread.start()
 
         Config.set("signatures.enabled", os.environ.get("SIGNATURES_ENABLED", "true").lower() in ["true", "1"])
         if Config.get("signatures.enabled"):
             self._signaturesRefreshThread = Thread(target=self._signatures_refresh_thread, name="signatures refresh")
-            self._signaturesRefreshThread.setDaemon(True)
+            #self._signaturesRefreshThread.setDaemon(True)
+            self._signaturesRefreshThread.daemon=True
             self._signaturesRefreshThread.start()
 
         for pipeline in self.pipelines:
@@ -564,13 +585,15 @@ class Produksjonssystem():
                                   pipeline_config  # config
                                   ))
 
-            thread.setDaemon(True)
+            #thread.setDaemon(True)
+            thread.daemon=True
             thread.start()
             threads.append(thread)
 
         plotter = Plotter(self.pipelines, report_dir=self.dirs["reports"])
         graph_thread = Thread(target=plotter.run, name="graph")
-        graph_thread.setDaemon(True)
+        #graph_thread.setDaemon(True)
+        graph_thread.daemon=True
         graph_thread.start()
 
         self.info("Produksjonssystemet er startet")
@@ -786,6 +809,16 @@ class Produksjonssystem():
                 except Exception:
                     self.info("En feil oppstod under sending av dagsrapporten for " + pipeline[0].title)
                     self.info(traceback.format_exc())
+    #def _rabbitmq_thread(self):
+        # RabbitMQ receiver
+    #    while self.shouldRun():
+    #        time.sleep(5)
+    #        try:
+    #            self.rabbitmq_receiver = core.rabbitmq_receiver.start()
+    #            self.rabbitmq_receiver.join()
+    #        except Exception:
+    #            self.info("Rabiit exception")
+    #            self.info(traceback.format_exc())
 
     def _config_thread(self):
         fileName = os.environ.get("CONFIG_FILE")
@@ -935,7 +968,8 @@ class Produksjonssystem():
 
 
 if __name__ == "__main__":
-    threading.current_thread().setName("main thread")
+    #threading.current_thread().setName("main thread") deprecated
+    threading.current_thread().name = "main thread"
     debug = "debug" in sys.argv or os.environ.get("DEBUG", "0") == "1"
     verbose = "verbose" in sys.argv or os.environ.get("VERBOSE", "0") == "1"
     produksjonssystem = Produksjonssystem(verbose=verbose)

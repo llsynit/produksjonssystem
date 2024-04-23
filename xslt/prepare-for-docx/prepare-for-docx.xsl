@@ -106,7 +106,14 @@
             </div>
         </xsl:if>
     </xsl:template>
-    <xsl:template match="div[f:types(.) = 'pagebreak' and f:movePageBefore(parent::*)=false() and f:movePageTopLevel(parent::*)=true() and not(ancestor::li)] | span[f:types(.) = 'pagebreak' and f:movePageBefore(parent::*)=false() and f:movePageTopLevel(parent::*)=true() and not(ancestor::li)]">
+    <!-- Replaced with the code above, 2024-02-14. Kvile and Stephen -->
+    <!-- removes the span with pagebreak inside a p-->
+    <xsl:template match="span[f:types(.) = 'pagebreak' and ancestor::p]" />
+      <!-- Replaced with the code above, 2024-02-14. Kvile and Stephen -->
+      <!-- <xsl:template match="div[f:types(.) = 'pagebreak' and f:movePageBefore(parent::*)=false() and f:movePageTopLevel(parent::*)=true() and not(ancestor::li)] | span[f:types(.) = 'pagebreak' and f:movePageBefore(parent::*)=false() and f:movePageTopLevel(parent::*)=true() and not(ancestor::li)]"> -->
+    <xsl:template match="div[f:types(.) = 'pagebreak' and f:movePageBefore(parent::*)=false() and f:movePageTopLevel(parent::*)=true() and not(ancestor::li)] | span[f:types(.) = 'pagebreak' and f:movePageBefore(parent::*)=false() and f:movePageTopLevel(parent::*)=true() and not(ancestor::li or ancestor::p)]">
+      <!-- Replaced with the code above, 2024-02-14. Kvile and Stephen -->
+      <!-- <xsl:template match="div[f:types(.) = 'pagebreak' and f:movePageBefore(parent::*)=false() and f:movePageTopLevel(parent::*)=true() and not(ancestor::li)] | span[f:types(.) = 'pagebreak' and f:movePageBefore(parent::*)=false() and f:movePageTopLevel(parent::*)=true() and not(ancestor::li)]"> -->
     <!-- <xsl:template match="(div | span)[f:types(.) = 'pagebreak' and f:movePageBefore(parent::*)=false() and f:movePageTopLevel(parent::*)=true() and not(ancestor::li)]"> -->
         <xsl:call-template name="create-pagebreak">
             <xsl:with-param name="element" select="." />
