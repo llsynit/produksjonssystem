@@ -303,7 +303,7 @@ class NlbpubToPef(Pipeline):
                 ("1.11.1-SNAPSHOT", "1.3.0"),
            ]"""
             pipeline_and_script_version = [
-
+                ("1.14.17-p1", "6.2.0"), #added 26.04.24
                 ("1.14.17-p2-SNAPSHOT", "6.2.0"), #added 07.04.24
 
 
@@ -400,9 +400,7 @@ class NlbpubToPef(Pipeline):
                 self.utils.report.info("Klarte ikke å konvertere boken")
                 self.utils.report.title = self.title + ": " + identifier + " feilet 😭👎" + bookTitle
                 return False
-            print("Files in the output folder:")
-            for f in os.listdir(dp2_job.dir_output):
-                print(f)
+
             dp2_pef_dir = os.path.join(dp2_job.dir_output, "pef-output-dir")
             dp2_new_pef_dir = os.path.join(dp2_job.dir_output, "output-dir")
             #for pip version 1.14.15 and newer
