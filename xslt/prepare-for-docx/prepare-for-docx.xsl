@@ -4,12 +4,14 @@
    xpath-default-namespace="http://www.w3.org/1999/xhtml" xmlns="http://www.w3.org/1999/xhtml"
    exclude-result-prefixes="#all" version="2.0">
    <xsl:output method="xhtml" indent="no" include-content-type="no" />
-   <xsl:template match="@* | node()" mode="#all">
+   <xsl:template
+      match="@* | node()" mode="#all">
       <xsl:copy copy-namespaces="no" exclude-result-prefixes="#all">
          <xsl:apply-templates select="@* | node()" mode="#current" />
       </xsl:copy>
    </xsl:template>
-   <xsl:template match="comment()" priority="2" />
+   <xsl:template
+      match="comment()" priority="2" />
    <xsl:template match="span[@class = 'answer']">
       <xsl:text>....</xsl:text>
    </xsl:template>
@@ -33,7 +35,8 @@
          </xsl:for-each>
       </p>
    </xsl:template>
-   <xsl:template match="span[@class='lic']">
+   <xsl:template
+      match="span[@class='lic']">
       <xsl:apply-templates />
       <xsl:if
          test="exists(following-sibling::node()[1][matches(name(), 'span')])">
@@ -82,7 +85,8 @@
    </xsl:template>
 
 
-   <xsl:function name="f:movePageTopLevel">
+   <xsl:function
+      name="f:movePageTopLevel">
       <xsl:param name="element" as="element()" />
         <xsl:variable name="movePageTopLevel"
          as="xs:boolean"
@@ -112,35 +116,66 @@
       </xsl:for-each>
         <xsl:next-match />
    </xsl:template>
+
    <xsl:template name="create-pagebreak">
       <xsl:param name="element" as="element()" />
-        <xsl:variable name="page-number" as="xs:integer"
-         select="if (@title) then @title else text()" />
-        <xsl:variable name="startFrom"
-         as="xs:integer"
-         select="if (//meta[@name='startPagenumberingFrom']/@content) then //meta[@name='startPagenumberingFrom']/@content else 0" />
-        <xsl:if
-         test="$page-number ge $startFrom">
-         <!-- Last page in book -->
-            <xsl:variable name="max-page-number"
-            select="(//div | //span)[f:types(.) = 'pagebreak'][last()]/(if (@title) then @title else text())" />
-         <!-- Last page in section -->
-         <!-- <xsl:variable name="max-page-number" select="($element/ancestor::section//div |
-         $element/ancestor::section//span)[f:types(.) = 'pagebreak'][last()]/(if (@title) then
-         @title else text())"/> -->
-            <xsl:variable
-            name="to-page" select="$max-page-number" />
-            <xsl:if
-            test="not(exists(ancestor::li/p | ancestor::figcaption/p | ancestor::figure[f:classes(.) = 'image']/aside/p | ancestor::caption/p))">
-            <p />
-         </xsl:if>
-            <div epub:type="pagebreak">
-            <xsl:apply-templates select="@*" />
-            <xsl:attribute name="title" select="$page-number" />
-            <xsl:value-of select="concat('--- ', $page-number, ' til ', $to-page)" />
-         </div>
+
+      <!-- Determine the title value -->
+      <xsl:variable name="title"
+         select="if (@title) then string(@title) else string(text())" />
+
+      <!-- Check if the title is a Roman numeral -->
+      <xsl:variable
+         name="isRomanNumeral" as="xs:boolean"
+         select="matches(upper-case($title), '^[IVXLCDM]+$')" />
+
+      <!-- Determine the page number, treating it as a string -->
+      <xsl:variable name="page-number"
+         as="xs:string"
+         select="$title" />
+
+      <!-- Determine the starting page number from metadata -->
+      <xsl:variable name="startFrom"
+         select="if (//meta[@name='startPagenumberingFrom']/@content)
+                  then xs:integer(//meta[@name='startPagenumberingFrom']/@content)
+                  else 0" />
+
+      <!-- Only compare page-number as an integer if it is not a Roman numeral -->
+      <xsl:variable
+         name="page-number-as-integer" as="xs:integer?"
+         select="if (not($isRomanNumeral)) then xs:integer($page-number) else ()" />
+
+      <!-- Determine the max page number -->
+      <xsl:variable
+         name="max-page-number"
+         select="(//div | //span)[f:types(.) = 'pagebreak'][last()]/(if (@title) then string(@title) else string(text()))" />
+
+      <!-- Avoid specific ancestor elements -->
+      <xsl:if
+         test="not(exists(ancestor::li/p | ancestor::figcaption/p | ancestor::figure[f:classes(.) = 'image']/aside/p | ancestor::caption/p))">
+         <p />
       </xsl:if>
+
+      <!-- Create the page break div based on conditions -->
+      <xsl:choose>
+         <xsl:when test="not($isRomanNumeral) and $page-number-as-integer ge $startFrom">
+            <div epub:type="pagebreak">
+               <xsl:apply-templates select="@*" />
+               <xsl:attribute name="title" select="$page-number" />
+               <xsl:value-of select="concat('--- ', $page-number, ' til ', $max-page-number)" />
+            </div>
+         </xsl:when>
+         <xsl:when test="$isRomanNumeral">
+            <div epub:type="pagebreak">
+               <xsl:apply-templates select="@*" />
+               <xsl:attribute name="title" select="$page-number" />
+               <xsl:value-of select="concat('--- ', $page-number, ' til ', $max-page-number)" />
+            </div>
+         </xsl:when>
+      </xsl:choose>
    </xsl:template>
+
+
    <!-- Replaced with the code above, 2024-02-14. Kvile and Stephen -->
    <!-- removes the span with pagebreak inside a p-->
    <xsl:template match="span[f:types(.) = 'pagebreak' and ancestor::p]" />
@@ -164,7 +199,8 @@
          <xsl:with-param name="element" select="." />
       </xsl:call-template>
    </xsl:template>
-   <xsl:template match="p[f:movePageTopLevel(.)=true()]" priority="2">
+   <xsl:template
+      match="p[f:movePageTopLevel(.)=true()]" priority="2">
       <!-- <xsl:template match="p[f:movePageBefore(.)=false()]" priority="2"> -->
       <xsl:next-match />
       <xsl:for-each
@@ -201,24 +237,28 @@
       </xsl:copy>
    </xsl:template>
 
-   <xsl:template match="aside[f:classes(.) = 'sidebar'] | div[f:classes(.) = 'linegroup']">
+   <xsl:template
+      match="aside[f:classes(.) = 'sidebar'] | div[f:classes(.) = 'linegroup']">
       <p />
       <xsl:next-match />
    </xsl:template>
    <!-- Inserted 2023-09-20. Kvile and Stephen. Moved from template above. Added empty p at end -->
-   <xsl:template match="div[f:classes(.) = 'ramme'] | div[f:classes(.) = 'generisk-ramme']">
+   <xsl:template
+      match="div[f:classes(.) = 'ramme'] | div[f:classes(.) = 'generisk-ramme']">
       <p />
       <xsl:next-match />
       <p />
    </xsl:template>
-   <xsl:template match="aside[f:classes(.) = 'glossary']/*[matches(name(), 'h[1-6]')]">
+   <xsl:template
+      match="aside[f:classes(.) = 'glossary']/*[matches(name(), 'h[1-6]')]">
       <p>
          <xsl:text>_</xsl:text>
          <xsl:apply-templates />
          <xsl:text>_</xsl:text>
       </p>
    </xsl:template>
-   <xsl:template match="div[f:classes(.) = 'ramdoc'] | aside[f:classes(.) = 'ramdoc']">
+   <xsl:template
+      match="div[f:classes(.) = 'ramdoc'] | aside[f:classes(.) = 'ramdoc']">
       <p />
       <xsl:copy>
          <p>
@@ -261,12 +301,14 @@
          </xsl:otherwise>
       </xsl:choose>
    </xsl:function>
-   <xsl:template match="img">
+   <xsl:template
+      match="img">
       <xsl:text>[</xsl:text>
       <xsl:value-of select="f:imgAlt(.)" />
       <xsl:text>]</xsl:text>
    </xsl:template>
-   <xsl:template match="figure[f:classes(.) = 'image-series']">
+   <xsl:template
+      match="figure[f:classes(.) = 'image-series']">
       <xsl:apply-templates />
    </xsl:template>
    <xsl:template match="figure[f:classes(.) = 'image']">
@@ -282,7 +324,8 @@
          select="./figcaption" />
       <p />
    </xsl:template>
-   <xsl:template match="figure[f:classes(.) = 'image']/aside">
+   <xsl:template
+      match="figure[f:classes(.) = 'image']/aside">
       <xsl:if test="not(normalize-space(.) = '¤' or normalize-space(.) = '*')">
          <p>
             <xsl:attribute name="lang">no</xsl:attribute>
@@ -292,7 +335,8 @@
          </p>
       </xsl:if>
    </xsl:template>
-   <xsl:template match="figcaption">
+   <xsl:template
+      match="figcaption">
       <p>
          <xsl:attribute name="lang">no</xsl:attribute>
          <xsl:attribute name="xml:lang">no</xsl:attribute>
@@ -300,7 +344,8 @@
          <xsl:apply-templates />
       </p>
    </xsl:template>
-   <xsl:template match="figure[f:classes(.) = 'image-series']/figcaption" priority="2">
+   <xsl:template
+      match="figure[f:classes(.) = 'image-series']/figcaption" priority="2">
       <p />
       <p>
          <xsl:text>Bildeserie: </xsl:text>
@@ -308,7 +353,8 @@
       </p>
    </xsl:template>
 
-   <xsl:template match="ol[parent::section[f:types(.) = 'toc']]" priority="10">
+   <xsl:template
+      match="ol[parent::section[f:types(.) = 'toc']]" priority="10">
       <xsl:for-each select="descendant::span[f:types(.) = 'pagebreak']">
          <xsl:call-template name="create-pagebreak" />
       </xsl:for-each>
@@ -328,8 +374,10 @@
             select="node()" />
       </xsl:copy>
    </xsl:template>
-   <xsl:template match="ol[ancestor::section[f:types(.) = 'toc'] and count(ancestor::li) ge 2]" />
-   <xsl:template match="li[ancestor::section[f:types(.) = 'toc']]">
+   <xsl:template
+      match="ol[ancestor::section[f:types(.) = 'toc'] and count(ancestor::li) ge 2]" />
+   <xsl:template
+      match="li[ancestor::section[f:types(.) = 'toc']]">
       <xsl:copy exclude-result-prefixes="#all">
          <xsl:apply-templates select="@*" />
          <xsl:value-of
@@ -338,7 +386,8 @@
             select="node()" />
       </xsl:copy>
    </xsl:template>
-   <xsl:template match="li[ancestor::section[f:types(.) = 'toc'] and matches(., '^Kolofon')]"
+   <xsl:template
+      match="li[ancestor::section[f:types(.) = 'toc'] and matches(., '^Kolofon')]"
       priority="2" />
    <xsl:template match="body">
       <xsl:copy exclude-result-prefixes="#all">
@@ -501,8 +550,10 @@
          <!--03.05
          added frontmatter and preface to avoid string to int conversion of page numbers in  Roman
          numerals-->
+         <!--removed
+         frontmatter and preface from template below. It removes the sections completely-->
          <xsl:apply-templates
-            select="* except section[f:types(.) = ('toc', 'backmatter', 'index', 'colophon', 'frontmatter', 'titlepage','preface','cover')]" />
+            select="* except section[f:types(.) = ('toc', 'backmatter', 'index', 'colophon', 'titlepage','cover')]" />
          <p />
          <p>
       Ettertekst:</p>
@@ -527,8 +578,10 @@
                <p>
                   <span xml:lang="nn" lang="nn">Opphavsrett Statped:<br>Denne boka er lagd til rette
       for elevar med synssvekking. Ifølgje lov om opphavsrett kan ho ikkje brukast av andre. Teksten
-      er tilpassa for lesing med skjermlesar og leselist. Kopiering er berre tillate til eige bruk.
-      Brot på desse avtalevilkåra, slik som ulovleg kopiering eller medverknad til ulovleg
+      er tilpassa for lesing med skjermlesar og leselist. Kopiering er berre
+                        tillate til eige bruk.
+                        Brot på desse avtalevilkåra, slik som ulovleg kopiering eller medverknad til
+      ulovleg
                         kopiering, kan medføre ansvar etter åndsverklova.</br></span>
 
                </p>
@@ -540,9 +593,11 @@
                <p>
                   <span xml:lang="no" lang="no">Opphavsrett Statped:<br>Denne boka er tilrettelagt
       for elever med synssvekkelse. Ifølge lov om opphavsrett kan den ikke brukes av andre. Teksten
-      er tilpasset for lesing med skjermleser og leselist. Kopiering er kun tillatt til eget bruk.
-      Brudd på disse avtalevilkårene, som ulovlig kopiering eller medvirkning til ulovlig kopiering,
-      kan medføre ansvar etter åndsverkloven.</br></span>
+      er tilpasset for lesing med skjermleser og leselist. Kopiering er kun
+                        tillatt til eget bruk.
+                        Brudd på disse avtalevilkårene, som ulovlig kopiering eller medvirkning til
+      ulovlig kopiering,
+                        kan medføre ansvar etter åndsverkloven.</br></span>
                </p>
 
             </xsl:otherwise>
@@ -553,14 +608,17 @@
       </xsl:copy>
    </xsl:template>
 
-   <xsl:template match="section[f:types(.) = 'colophon']/*[matches(name(), 'h[1-6]')]" />
+   <xsl:template
+      match="section[f:types(.) = 'colophon']/*[matches(name(), 'h[1-6]')]" />
 
-   <xsl:template match="em | strong">
+   <xsl:template
+      match="em | strong">
       <xsl:text>_</xsl:text>
       <xsl:apply-templates select="node()" />
       <xsl:text>_</xsl:text>
    </xsl:template>
-   <xsl:template match="table">
+   <xsl:template
+      match="table">
       <!-- Insert text Tabell: -->
       <xsl:if test="not(descendant::span[f:types(.) = 'pagebreak'])">
          <p />
@@ -577,7 +635,8 @@
       <xsl:next-match />
       <p></p>
    </xsl:template>
-   <xsl:template match="ul[f:classes(.) = 'list-unstyled']" priority="2">
+   <xsl:template
+      match="ul[f:classes(.) = 'list-unstyled']" priority="2">
       <xsl:for-each select="li">
          <p>
             <xsl:if test="not(ancestor::table)">
@@ -601,7 +660,8 @@
          </xsl:element>
       </xsl:copy>
    </xsl:template>
-   <xsl:template match="dl">
+   <xsl:template
+      match="dl">
       <xsl:for-each-group select="dt | dd" group-starting-with="dt">
          <p>STATPED_DUMMYTEXT_DL<xsl:apply-templates select="current-group()" /></p>
          <!-- apply templates to the dt and all directly following dd elements -->
@@ -611,7 +671,8 @@
       match="p[not(preceding-sibling::*[1][self::p]) and following-sibling::*[1][self::dl]]">
       <p>STATPED_DUMMYTEXT_P_BEFORE_DL<xsl:apply-templates /></p>
    </xsl:template>
-   <xsl:template match="sub">
+   <xsl:template
+      match="sub">
       <xsl:text>\</xsl:text>
       <xsl:if test="string-length(.) gt 1">
          <xsl:text>(</xsl:text>
@@ -635,7 +696,8 @@
    </xsl:template>
 
    <!-- remove sound-text, blocks inside /.../ or [...] -->
-   <xsl:template match="dt//text() | dd//text()">
+   <xsl:template
+      match="dt//text() | dd//text()">
       <!-- Replaced the regex below. 2023-09-20. Kvile and Stephen -->
       <xsl:variable name="textValue"
          select="replace(., '\s/\S[^/]*?/', '')" />
@@ -648,13 +710,15 @@
       <xsl:value-of
          select="replace($textValue, '\[[^\]]*?\]', '')" />
    </xsl:template>
-   <xsl:template match="dt" priority="10">
+   <xsl:template
+      match="dt" priority="10">
       <!-- rename to span -->
       <xsl:element name="span">
          <xsl:apply-templates select="@* | node()" />
       </xsl:element>
    </xsl:template>
-   <xsl:template match="dd" priority="10">
+   <xsl:template
+      match="dd" priority="10">
       <!-- rename to span -->
       <xsl:element name="span">
          <xsl:apply-templates select="@* | node()" />
@@ -670,12 +734,14 @@
          </xsl:element>
       </xsl:copy>
    </xsl:template -->
-   <xsl:function name="f:types">
+   <xsl:function
+      name="f:types">
       <xsl:param name="element" as="element()" />
       <xsl:sequence
          select="tokenize($element/@epub:type, '\s+')" />
    </xsl:function>
-   <xsl:function name="f:classes">
+   <xsl:function
+      name="f:classes">
       <xsl:param name="element" as="element()" />
       <xsl:sequence
          select="tokenize($element/@class, '\s+')" />

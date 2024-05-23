@@ -177,6 +177,7 @@ class IncomingNordic(Pipeline):
                               {"epub": os.path.basename(epub_noimages_file)},
                               priority="high",
                               pipeline_and_script_version=[
+                                ("1.14.3", "1.5.2-SNAPSHOT"), #added 08.04.24 validate with Nordic EPUB3/DTBook Migrator. The Nordic EPUB3 Validator script can validate according to both 2015-1 and 2020-1 rulesets. Which ruleset will be applied is determined by the value of the <meta property="nordic:guidelines"> element in package.opf.
                                 ("1.13.6", "1.4.6"),
                                 ("1.13.4", "1.4.5"),
                                 ("1.12.1", "1.4.2"),
