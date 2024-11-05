@@ -2,6 +2,15 @@
 @namespace epub 'http://www.idpf.org/2007/ops';
 @namespace xml 'http://www.w3.org/XML/1998/namespace';
 
+/*added on 19.06*/
+/* Set variables before the import*/
+
+//$group-dt-dd: true;  // Group dt and dd elements (from bert)
+// $dt-suffix: ": ";    // Text between dt and dd --additional argument
+// $dt-separator: " ";  // Text between two dt elements  --additional argument
+
+//@import "http://www.daisy.org/pipeline/modules/braille/html-to-pef/_definition-lists.scss"; //(from bert)
+
 
 /* Declare parameters. Values are passed in from nlb:dtbook-to-pef. */
 $show-print-page-numbers: false !default;

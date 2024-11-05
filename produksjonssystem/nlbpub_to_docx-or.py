@@ -260,20 +260,8 @@ class NLBpubToDocx(Pipeline):
                     if re.match(r"^(STATPED_DUMMYTEXT_LIST_UNSTYLED|STATPED_DUMMYTEXT_DL)", paragraph.text):
                         paragraph.paragraph_format.left_indent = hangingIndentList #Pt(0)
                         paragraph.paragraph_format.first_line_indent = -hangingIndentList #Pt(-20)
-                    """if re.match(r"^STATPED_DUMMYTEXT", paragraph.text) and False:
-                        #dummyTextElement = paragraph._element.xpath(r".//w:t[matches(., '^STATPED_DUMMYTEXT')]")[1]
-                        dummyTextElement = paragraph._element.xpath(".//w:t[starts-with(., 'STATPED_DUMMYTEXT')]")[0]
-
-                        dummyTextElement.text = re.sub(r"^(STATPED_DUMMYTEXT_LIST_UNSTYLED|STATPED_DUMMYTEXT_DL|STATPED_DUMMYTEXT_P_BEFORE_DL)", "", dummyTextElement.text)
-                        # paragraph.text = re.sub(r"^(STATPED_DUMMYTEXT_LIST_UNSTYLED|STATPED_DUMMYTEXT_DL|STATPED_DUMMYTEXT_P_BEFORE_DL)", "", paragraph.text) """
                     if re.match(r"^STATPED_DUMMYTEXT", paragraph.text):
-                        # Find all <w:t> elements in the paragraph
-                        t_elements = paragraph._element.xpath(".//w:t[starts-with(., 'STATPED_DUMMYTEXT')]")
-                        if t_elements:
-                            for t_element in t_elements:
-                                # Modify the text inside the <w:t> elements
-                                t_element.text = re.sub(r"^(STATPED_DUMMYTEXT_LIST_UNSTYLED|STATPED_DUMMYTEXT_DL|STATPED_DUMMYTEXT_P_BEFORE_DL)", "", t_element.text)
-
+                        paragraph.text = re.sub(r"^(STATPED_DUMMYTEXT_LIST_UNSTYLED|STATPED_DUMMYTEXT_DL|STATPED_DUMMYTEXT_P_BEFORE_DL)", "", paragraph.text)
                     if len(t) == 0 or paragraph.style.name[0:7] == "Heading" or re.match(r"^--- \d+ til |^_[^_]*_$", t):
                         removeIndent = True
                     else:

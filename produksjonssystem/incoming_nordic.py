@@ -199,9 +199,11 @@ class IncomingNordic(Pipeline):
                 self.utils.report.error("Klarte ikke å validere boken")
                 self.utils.report.title = self.title + ": " + epub.identifier() + " feilet 😭👎" + epubTitle
                 return
+        ###
 
         self.utils.report.debug("Making a copy of the EPUB to work on…")
         epub_fixed, epub_fixed_obj = epub.copy()
+        '''
         epub_unzipped = epub_fixed.asDir()
         nav_path = os.path.join(epub_unzipped, epub_fixed.nav_path())
         mathML_validation_result = True
@@ -225,9 +227,10 @@ class IncomingNordic(Pipeline):
             self.utils.report.error("{} additional MathML errors not shown in the main report. Check the log for details.".format(mathml_errors_not_shown))
         if mathML_validation_result is False:
             return False
-
+        '''
         self.utils.report.debug("Making sure that the EPUB has the correct file and directory permissions…")
         epub_fixed.fix_permissions()
+
 
         try:
             self.utils.report.info("Genererer ACE-rapport...")

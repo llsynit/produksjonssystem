@@ -349,7 +349,8 @@ class NlbpubToPef(Pipeline):
                 braille_arguments = {
                     #"html": os.path.basename(html_file), #for versions 1.14.14 and old versions
                     "source": os.path.basename(html_file), #from version 1.14.15 and newer versions
-                    "transform": "(formatter:dotify)(translator:liblouis)(dots:6)(grade:0)",
+                    "transform": "(formatter:dotify)(translator:liblouis)(dots:6)",
+                    #"transform": "(formatter:dotify)(translator:liblouis)(dots:6)(grade:0)", #original for norsk tegnsetting
                     "stylesheet": "braille.scss",
                     "page-width": '38',
                     "page-height": '29',
