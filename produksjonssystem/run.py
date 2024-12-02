@@ -468,10 +468,7 @@ class Produksjonssystem():
                     "Book archives can not contain eachother ({} contains or is contained by {})".format(self.book_archive_dirs[a], self.book_archive_dirs[d]))
         for d in self.dirs:
             self.dirs[d] = os.path.normpath(self.dirs[d])
-        print("-----------(self.book_archive_dirs")
-        print(self.book_archive_dirs)
-        print("¨¨¨¨¨¨¨¨*** self.dirs")
-        print(self.dirs)
+
         for d in self.dirs:
             if not d == "reports":
                 assert [a for a in self.book_archive_dirs if self.dirs[d].startswith(self.book_archive_dirs[a])], (
