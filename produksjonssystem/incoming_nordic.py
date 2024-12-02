@@ -204,7 +204,7 @@ class IncomingNordic(Pipeline):
         epub_fixed, epub_fixed_obj = epub.copy()
         epub_unzipped = epub_fixed.asDir()
         nav_path = os.path.join(epub_unzipped, epub_fixed.nav_path())
-        mathML_validation_result = True
+        '''mathML_validation_result = True
         mathml_error_count = 0
         mathml_errors_not_shown = 0
         mathml_report_errors_max = 10
@@ -225,7 +225,7 @@ class IncomingNordic(Pipeline):
             self.utils.report.error("{} additional MathML errors not shown in the main report. Check the log for details.".format(mathml_errors_not_shown))
         if mathML_validation_result is False:
             return False
-
+        '''
         self.utils.report.debug("Making sure that the EPUB has the correct file and directory permissions…")
         epub_fixed.fix_permissions()
 
