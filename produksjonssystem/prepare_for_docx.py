@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import subprocess
 import shutil
 import sys
 import tempfile
@@ -94,6 +95,33 @@ class PrepareForDocx(Pipeline):
         temp_html_obj = tempfile.NamedTemporaryFile()
         temp_html = temp_html_obj.name
 
+        mathml_to_statpedmath = os.path.join(Xslt.xslt_dir, PrepareForDocx.uid, "mathml_to_statpedmath.py")
+        output_file = tempfile.NamedTemporaryFile(delete=False, suffix=".xhtml").name
+        command = ["python", mathml_to_statpedmath, "-i", temp_html, "-o", output_file]
+        # Log the command for debugging
+        self.utils.report.debug("Running command: " + " ".join(command))
+
+        # Run the subprocess directly
+        try:
+            process = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=False, timeout=600, check=True)
+
+            # Check if the process was successful
+            success = process.returncode == 0
+
+            # Handle success or failure
+            if success:
+                self.utils.report.info(f"Conversion successful. Output file created at: {output_file}")
+            else:
+                self.utils.report.error("Conversion failed. Check the log for details.")
+                self.utils.report.error(f"stderr: {process.stderr.decode('utf-8')}")
+                self.utils.report.error(f"stdout: {process.stdout.decode('utf-8')}")
+
+        except subprocess.CalledProcessError as e:
+            self.utils.report.error("Exception occurred during subprocess execution", exc_info=True)
+            self.utils.report.error(f"stderr: {e.stderr.decode('utf-8')}")
+            self.utils.report.error(f"stdout: {e.stdout.decode('utf-8')}")
+        except Exception as e:
+            self.utils.report.error("An unexpected error occurred", exc_info=True)
 
         xslt = Xslt(self,
                     stylesheet=os.path.join(Xslt.xslt_dir, PrepareForDocx.uid, "prepare-for-docx.xsl"),
