@@ -15,6 +15,7 @@ from core.pipeline import Pipeline
 from core.utils.epub import Epub
 from core.utils.xslt import Xslt
 from core.utils.filesystem import Filesystem
+from core.utils.docx.mathml_to_statpedmath import parse
 
 if sys.version_info[0] != 3 or sys.version_info[1] < 5:
     print("# This script requires Python version 3.5+")
@@ -95,41 +96,27 @@ class PrepareForDocx(Pipeline):
         temp_html_obj = tempfile.NamedTemporaryFile()
         temp_html = temp_html_obj.name
 
-        mathml_to_statpedmath = os.path.join(Xslt.xslt_dir, PrepareForDocx.uid, "mathml_to_statpedmath.py")
-        output_file = tempfile.NamedTemporaryFile(delete=False, suffix=".xhtml").name
-        command = ["python", mathml_to_statpedmath, "-i", temp_html, "-o", output_file]
-        # Log the command for debugging
-        self.utils.report.debug("Running command: " + " ".join(command))
+        soup = BeautifulSoup(open(html_file), "xml")
+        for math in soup(['m:math', 'math']):
+            span        = soup.new_tag('span', attrs={'class':'math'})
+            math_string = parse(math).strip()
+            span.string = math_string
+            math.insert_after(span)
+            math.decompose()
 
-        # Run the subprocess directly
-        try:
-            process = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=False, timeout=600, check=True)
+        with open(temp_html, "w") as file:
+            file.write(str(soup))
 
-            # Check if the process was successful
-            success = process.returncode == 0
 
-            # Handle success or failure
-            if success:
-                self.utils.report.info(f"Conversion successful. Output file created at: {output_file}")
-            else:
-                self.utils.report.error("Conversion failed. Check the log for details.")
-                self.utils.report.error(f"stderr: {process.stderr.decode('utf-8')}")
-                self.utils.report.error(f"stdout: {process.stdout.decode('utf-8')}")
 
-        except subprocess.CalledProcessError as e:
-            self.utils.report.error("Exception occurred during subprocess execution", exc_info=True)
-            self.utils.report.error(f"stderr: {e.stderr.decode('utf-8')}")
-            self.utils.report.error(f"stdout: {e.stdout.decode('utf-8')}")
-        except Exception as e:
-            self.utils.report.error("An unexpected error occurred", exc_info=True)
 
-        xslt = Xslt(self,
+        """xslt = Xslt(self,
                     stylesheet=os.path.join(Xslt.xslt_dir, PrepareForDocx.uid, "prepare-for-docx.xsl"),
                     source=html_file,
                     target=temp_html)
         if not xslt.success:
             self.utils.report.title = self.title + ": " + epub.identifier() + " feilet 😭👎" + epubTitle
-            return False
+            return False"""
         shutil.copy(temp_html, html_file)
 
         archived_path, stored = self.utils.filesystem.storeBook(temp_epubdir, epub.identifier())
