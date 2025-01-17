@@ -18,7 +18,7 @@ def check_braille_filename_in_queues(filename):
 
 # Callback function to handle received file and options
 def process_file(ch, method, properties, body):
-    logging.info("Received something-------******************************@...")
+    logging.info("Received params from dashboard-------******************************@...")
     filename, options = body.decode().split(',')
     print("Received file:", filename)
     print("Received options:", options)

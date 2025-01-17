@@ -7,6 +7,9 @@ import core.server
 from core.endpoints.directories import getDirectoryEditions, getDirectoryEdition
 from core.pipeline import Pipeline
 from core.directory import Directory
+from core.utils.metadata import Metadata
+from core.utils.filesystem import Filesystem
+
 
 
 @core.server.route(core.server.root_path + '/steps/', require_auth=None)
@@ -160,3 +163,100 @@ def triggerStepEdition(step_id, edition_id):
     else:
         pipeline.trigger(edition_id, auto=False)
         return jsonify([step_id]), 200
+@core.server.route(core.server.root_path + '/pipelines/progress_report/', require_auth=None)
+def progress_report():
+    uids = []
+    for pipeline in Pipeline.pipelines:
+        print(pipeline)
+        print(pipeline.uid)
+        uids.append(pipeline.uid)
+    progress_report_data = progress_report(uids)
+    return jsonify(progress_report_data), 200
+
+def get_book_count(dir, parentdirs=None):
+        books = []
+        if parentdirs is None:
+            print("dir {} parentdirs {}".format(dir, parentdirs))
+        else:
+            print("no parent dir {}".format(dir))
+            for d in dir:
+                if os.path.isdir(d):
+                    books += Filesystem.list_book_dir(d)
+            print(len(books))
+        return len(books)
+def progress_report(uids):
+        """
+        This method will generate a progress report with dynamic values
+        and return them for use in frontend rendering.
+        """
+
+        report_data = []
+        for uid in uids:
+            pipeline = None
+            for p in Pipeline.pipelines:
+                if p.uid == uid:
+                    pipeline = p
+                    break
+            if not pipeline:
+                continue
+            print("-------------pipeline----------------")
+            print(pipeline.dir_in)
+            group_pipeline = pipeline.get_current_group_pipeline()
+
+            title = group_pipeline.get_group_title()
+            pipeline_id = group_pipeline.get_group_id()
+
+            queue = group_pipeline.get_queue()
+            queue_created = len([book for book in queue if Pipeline.get_main_event(book) == "created"]) if queue else 0
+            queue_deleted = len([book for book in queue if Pipeline.get_main_event(book) == "deleted"]) if queue else 0
+            queue_modified = len([book for book in queue if Pipeline.get_main_event(book) == "modified"]) if queue else 0
+            queue_triggered = len([book for book in queue if Pipeline.get_main_event(book) == "triggered"]) if queue else 0
+            queue_autotriggered = len([book for book in queue if Pipeline.get_main_event(book) == "autotriggered"]) if queue else 0
+
+            queue_string = {
+                "created": queue_created,
+                "modified": queue_modified,
+                "deleted": queue_deleted,
+                "triggered": queue_triggered,
+                "autotriggered": queue_autotriggered
+            }
+
+            queue_size = len(queue) if queue else 0
+
+            book = Metadata.pipeline_book_shortname(group_pipeline)
+
+            # Simplified input and output path handling
+            relpath_in = None
+            relpath_out = None
+            state = group_pipeline.get_state()
+            status = group_pipeline.get_status()
+            progress_text = group_pipeline.get_progress()
+
+            if pipeline.dir_in:
+                relpath_in = os.path.basename(os.path.dirname(pipeline.dir_in))
+
+            if pipeline.dir_out:
+                relpath_out = os.path.basename(os.path.dirname(pipeline.dir_out))
+
+            book_count_in = get_book_count(pipeline.dir_in)
+            book_count_out = get_book_count(pipeline.dir_out, pipeline.parentdirs)
+
+            pipeline_data = {
+                "title": title,
+                #"queue_string": queue_string,
+                #"queue_size": queue_size,
+                "book_count_in": book_count_in,
+                "book_count_out": book_count_out,
+                #"book": book,
+                "relpath_in": relpath_in,
+                "relpath_out": relpath_out,
+                "state": state,
+                "status": status,
+                "progress_text": progress_text,
+
+            }
+            #print("pipeline_label {} state {} status {} progress_text {} label_out {} book_count_out".format(pipeline_label,state, status, label_out,progress_text, book_count_out))
+
+            report_data.append(pipeline_data)
+
+        return report_data

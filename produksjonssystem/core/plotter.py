@@ -260,7 +260,6 @@ class Plotter():
                 time.sleep(0.5)
                 if t == 0:
                     raise e
-
         dashboard_file = os.path.join(self.report_dir, name + ".html")
         if not os.path.isfile(dashboard_file):
             dashboard_template = os.path.normpath(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../dashboard.html'))

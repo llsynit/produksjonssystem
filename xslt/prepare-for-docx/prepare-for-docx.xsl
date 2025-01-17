@@ -143,7 +143,7 @@
       <!-- Only compare page-number as an integer if it is not a Roman numeral -->
       <xsl:variable
          name="page-number-as-integer" as="xs:integer?"
-         select="if (not($isRomanNumeral)) then xs:integer($page-number) else ()" />
+         select="if (not($isRomanNumeral) and normalize-space($page-number)!='') then xs:integer($page-number) else ()" />
 
       <!-- Determine the max page number -->
       <xsl:variable
