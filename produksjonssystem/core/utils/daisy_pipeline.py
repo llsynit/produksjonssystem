@@ -75,13 +75,14 @@ class DaisyPipelineJob():
                     + "export \"/usr/lib/jvm/java-8-openjdk-amd64\""
                 )
 
-            DaisyPipelineJob.engines.append({
+            # commenting out the local engine as we use remote engines running on docker.
+            """DaisyPipelineJob.engines.append({
                 "endpoint": "http://localhost:8181/ws",
                 "authentication": "false",
                 "key": "none",
                 "secret": "none",
                 "local": True,
-            })
+            })"""
         else:
             DaisyPipelineJob.dp2_cli = None
 
