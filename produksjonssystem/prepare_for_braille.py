@@ -8,6 +8,7 @@ import sys
 import tempfile
 
 from lxml import etree as ElementTree
+from bs4 import BeautifulSoup
 
 from core.pipeline import Pipeline
 from core.utils.epub import Epub
@@ -137,6 +138,33 @@ class PrepareForBraille(Pipeline):
             self.utils.report.title = self.title + ": " + str(epub.identifier() or "") + " feilet 😭👎" + epubTitle
             return False
         shutil.copy(temp_html, html_file)
+
+        prodnote_pef ="""<section class="braille-specific-info">
+            <h1>Lorem ipsum dolor sit amet, consectetur adipisicing elit. </h1>
+            <p><span>Punktsidetallet er midtstilt nederst på siden.  </span></p>
+            <p><span>Full celle i margen og foran sidetallet nederst til høyre markerer sideskift i originalboka.
+                  </span></p>
+            <p><span>Tekst og bilder kan være flyttet til en annen side for å unngå å bryte opp løpende
+                  tekst.</span></p>
+            <p><span>Ordforklaringer og stikkord finner du som regel etter teksten de tilhører, etter eventuelle
+                  bilder. </span></p>
+            <p><span>Bildebeskrivelser står mellom punktene (56-3) og (6-23).</span></p>
+            <p><span>Utheving markeres med punktene (23) foran og (56) bak teksten.</span></p>
+            <p>Boka skal ikke returneres.</p>
+         </section>"""
+
+        """self.utils.report.info("Setter inn spesielle merknad…")
+        with open(html_file, "r", encoding="utf-8") as file:
+            temp = file.read()
+        soup = BeautifulSoup(temp, "html.parser")
+        section = soup.find_all("section", class_="pef-about")
+        #add prodnote-pef to the end of the section
+        section[0].append(BeautifulSoup(prodnote_pef, "html.parser"))
+
+            #save the file
+        with open(html_file, "w", encoding="utf-8") as file:
+            file.write(str(soup)) """
+
 
         #-----remove spaces in numbers and insert . e.g 40 000 -> 40.000--
 
