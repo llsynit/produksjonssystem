@@ -20,6 +20,7 @@ from core.utils.epub import Epub
 from core.utils.xslt import Xslt
 from core.utils.metadata import Metadata
 from core.utils.filesystem import Filesystem
+from nlbpub_to_statpub import apply_requirements
 
 if sys.version_info[0] != 3 or sys.version_info[1] < 5:
     print("# This script requires Python version 3.5+")
@@ -251,6 +252,15 @@ class NordicToNlbpub(Pipeline):
                         target=temp_xml_file)
             if not xslt.success:
                 return False
+            #shutil.copy(temp_xml_file, html_file)
+
+            with open(temp_xml_file, "r") as f:
+                soup = BeautifulSoup(f, 'xml')
+
+            with open(temp_xml_file, "w") as f:
+                f.write(str(apply_requirements(soup, self.utils.report)))
+
+
             shutil.copy(temp_xml_file, html_file)
 
             self.utils.report.info("Legger til EPUB-filer (OPF, NAV, container.xml, mediatype)...")
@@ -269,6 +279,7 @@ class NordicToNlbpub(Pipeline):
                     os.remove(fullpath)
                     Filesystem.copy(self.utils.report, os.path.join(temp_epubdir_withimages, relpath), fullpath)
             temp_epub = Epub(self.utils.report, temp_epubdir)
+
 
             nlbpub.update_prefixes()
 
