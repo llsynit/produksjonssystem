@@ -141,10 +141,7 @@
                   else 0" />
 
       <!-- Only compare page-number as an integer if it is not a Roman numeral -->
-      <!--16.01.25
-      and normalize-space($page-number)!='' to solve issue of Cannot convert zero-length string to
-      an integer-->
-       <xsl:variable
+      <xsl:variable
          name="page-number-as-integer" as="xs:integer?"
          select="if (not($isRomanNumeral) and normalize-space($page-number)!='') then xs:integer($page-number) else ()" />
 
