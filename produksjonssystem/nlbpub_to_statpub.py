@@ -25,18 +25,20 @@ from nltk.tokenize  import word_tokenize
 from ipapy          import is_valid_ipa
 from epubcheck      import EpubCheck
 
-import string, re, nltk, cv2, subprocess #spacy,
+import string, re, nltk, subprocess #spacy, cv2
 
 import xml.etree.ElementTree    as ET
+"""
 import numpy                    as np
 import pandas                   as pd
 import matplotlib.pyplot        as plt
-import csv
+
 try:
     from PIL import Image
 except ImportError:
     import Image
 import pytesseract
+"""
 
 #nltk.download('punkt_tab')
 
@@ -336,7 +338,7 @@ def get_heading(tag, soup):
     page = PAGES['en'] if soup.html['lang'] == 'en' else PAGES['no']
     return page + ' ' + original_page(tag, soup) + ':'
 
-
+"""
 def figure_to_table(docs, soup, figure):
     try:
         # =====================================================================
@@ -506,7 +508,7 @@ def figure_to_table(docs, soup, figure):
 
     except Exception as e: # work on python 3.x
         return None
-
+"""
 def apply_requirements(soup, logger):
 
     # 2.1.1 CSS
