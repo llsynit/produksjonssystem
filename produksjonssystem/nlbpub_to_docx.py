@@ -27,6 +27,8 @@ from core.utils.filesystem import Filesystem
 
 from pathlib import Path
 
+from prepare_for_docx import PrepareForDocx
+
 if sys.version_info[0] != 3 or sys.version_info[1] < 5:
     print("# This script requires Python version 3.5+")
     sys.exit(1)
@@ -129,6 +131,44 @@ class NLBpubToDocx(Pipeline):
         temp_docxdir_obj = tempfile.TemporaryDirectory()
         temp_docxdir = temp_docxdir_obj.name
 
+
+        reference_docx = os.path.join(Xslt.xslt_dir, PrepareForDocx.uid, "pandoc","template.docx")
+
+        try:
+            # Command to convert HTML to DOCX using Pandoc
+            self.utils.report.info("Konverterer fra XHTML til DOCX med pandoc...")
+            command = ["pandoc", html_file, "-o", os.path.join(temp_docxdir, epub.identifier() + ".docx"), "--reference-doc",
+                    reference_docx]
+            # Execute the command
+            process = subprocess.run(command, check=True)
+            if process.returncode == 0:
+                self.utils.report.info(epub.identifier() +" ble konvertert.")
+            else:
+                self.utils.report.error("En feil oppstod ved konvertering til DOCX for " + epub.identifier())
+                self.utils.report.debug(traceback.format_stack())
+                self.utils.report.title = self.title + ": " + self.book["name"] + " feilet 😭👎" + epubTitle
+                return False
+        #except subprocess.CalledProcessError as e:
+        #    self.utils.report.error("Conversion with pandoc failed:", e)
+
+        except subprocess.TimeoutExpired:
+            self.utils.report.error("Det tok for lang tid å konvertere " + epub.identifier() + " til DOCX, og Calibre-prosessen ble derfor stoppet.")
+            self.utils.report.title = self.title + ": " + self.book["name"] + " feilet 😭👎" + epubTitle
+            return False
+
+        except subprocess.CalledProcessError as e:
+            self.utils.report.error("En feil oppstod ved konvertering til DOCX for " + epub.identifier())
+            self.utils.report.info(traceback.format_exc(), preformatted=True)
+            self.utils.report.title = self.title + ": " + self.book["name"] + " feilet 😭👎" + epubTitle
+            return False
+        archived_path, stored = self.utils.filesystem.storeBook(temp_docxdir, epub.identifier())
+        self.utils.report.attachment(None, archived_path, "DEBUG")
+        self.utils.report.title = self.title + ": " + epub.identifier() + " ble konvertert 👍😄" + epubTitle
+        return True
+
+
+    """
+
         try:
             self.utils.report.info("Konverterer fra XHTML til DOCX...")
             process = self.utils.filesystem.run([
@@ -163,7 +203,7 @@ class NLBpubToDocx(Pipeline):
             if process.returncode == 0:
                 self.utils.report.info("Boken ble konvertert.")
 
-# -------------  script from kvile ---------------
+            # -------------  script from kvile ---------------
                 document = Document(os.path.join(temp_docxdir, epub.identifier() + "_calibre.docx"))
                 emptyParagraph = False
                 normalParagraph = "Normal"
@@ -344,7 +384,7 @@ class NLBpubToDocx(Pipeline):
                 writeFile(xmlText, zippedFile)
                 zipdir(str(folder / tempFolder), str(folder), os.path.join(temp_docxdir, epub.identifier() + ".docx"))
 
-# ---------- end script from kvile -------
+        # ---------- end script from kvile -------
 
             else:
                 self.utils.report.error("En feil oppstod ved konvertering til DOCX for " + epub.identifier())
@@ -363,10 +403,11 @@ class NLBpubToDocx(Pipeline):
             self.utils.report.title = self.title + ": " + self.book["name"] + " feilet 😭👎" + epubTitle
             return False
 
+
         archived_path, stored = self.utils.filesystem.storeBook(temp_docxdir, epub.identifier())
         self.utils.report.attachment(None, archived_path, "DEBUG")
         self.utils.report.title = self.title + ": " + epub.identifier() + " ble konvertert 👍😄" + epubTitle
-        return True
+        return True """
 
 if __name__ == "__main__":
     NLBpubToDocx().run()

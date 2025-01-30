@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import subprocess
 import shutil
 import sys
 import tempfile
@@ -14,6 +15,7 @@ from core.pipeline import Pipeline
 from core.utils.epub import Epub
 from core.utils.xslt import Xslt
 from core.utils.filesystem import Filesystem
+from core.utils.docx.mathml_to_statpedmath import parse
 
 if sys.version_info[0] != 3 or sys.version_info[1] < 5:
     print("# This script requires Python version 3.5+")
@@ -94,14 +96,27 @@ class PrepareForDocx(Pipeline):
         temp_html_obj = tempfile.NamedTemporaryFile()
         temp_html = temp_html_obj.name
 
+        soup = BeautifulSoup(open(html_file), "xml")
+        for math in soup(['m:math', 'math']):
+            span        = soup.new_tag('span', attrs={'class':'math'})
+            math_string = parse(math).strip()
+            span.string = math_string
+            math.insert_after(span)
+            math.decompose()
 
-        xslt = Xslt(self,
+        with open(temp_html, "w") as file:
+            file.write(str(soup))
+
+
+
+
+        """xslt = Xslt(self,
                     stylesheet=os.path.join(Xslt.xslt_dir, PrepareForDocx.uid, "prepare-for-docx.xsl"),
                     source=html_file,
                     target=temp_html)
         if not xslt.success:
             self.utils.report.title = self.title + ": " + epub.identifier() + " feilet 😭👎" + epubTitle
-            return False
+            return False"""
         shutil.copy(temp_html, html_file)
 
         archived_path, stored = self.utils.filesystem.storeBook(temp_epubdir, epub.identifier())
