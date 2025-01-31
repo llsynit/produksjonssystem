@@ -77,5 +77,5 @@ HEALTHCHECK --interval=30s --timeout=3s \
   CMD curl -f http://localhost:3800/prodsys/v1/health || exit 1
 
 
-RUN pip install -r requirements.txt
+RUN pip install -r requirements.txt && python -c "import nltk; nltk.download('punkt_tab')"
 CMD ["python","produksjonssystem/run.py"]
