@@ -130,10 +130,26 @@
          select="matches(upper-case($title), '^[IVXLCDM]+$')" />
 
       <!-- Determine the page number, treating it as a string -->
-      <xsl:variable name="page-number"
+      <!--<xsl:variable
+      name="page-number"
          as="xs:string"
          select="$title" />
+         -->
+      <!-- Extract the page number after the hyphen (if present), otherwise use the title as-is -->
+      <!--replaced
+      above with cases where the tilte has format such as <div class="page-special"
+      epub:type="pagebreak" id="page-ch2-122" title="ch2-122"></div> -->
+      <!--Only
+      the digits after - are assigned to page-number-->
+      <xsl:variable
+         name="page-number-after-hyphen" as="xs:string"
+         select="if (contains($title, '-')) then substring-after($title, '-') else $title" />
 
+      <!-- Determine the page number as a string -->
+      <xsl:variable
+         name="page-number"
+         as="xs:string"
+         select="$page-number-after-hyphen" />
       <!-- Determine the starting page number from metadata -->
       <xsl:variable name="startFrom"
          select="if (//meta[@name='startPagenumberingFrom']/@content)
@@ -141,9 +157,16 @@
                   else 0" />
 
       <!-- Only compare page-number as an integer if it is not a Roman numeral -->
+      <!--<xsl:variable
+         name="page-number-as-integer" as="xs:integer?"
+         select="if (not($isRomanNumeral)) then xs:integer($page-number) else ()" />-->
+      <!--replaced
+      below to take into consideration page-number-after-hypen-->
+      <!-- Check if the page number is a valid integer -->
       <xsl:variable
          name="page-number-as-integer" as="xs:integer?"
-         select="if (not($isRomanNumeral)) then xs:integer($page-number) else ()" />
+         select="if (not($isRomanNumeral) and matches($page-number, '^\d+$')) then xs:integer($page-number) else ()" />
+
 
       <!-- Determine the max page number -->
       <xsl:variable
@@ -162,14 +185,27 @@
             <div epub:type="pagebreak">
                <xsl:apply-templates select="@*" />
                <xsl:attribute name="title" select="$page-number" />
-               <xsl:value-of select="concat('--- ', $page-number, ' til ', $max-page-number)" />
+               <!-- <xsl:value-of select="concat('replacewithhypenhypenhypen ', $page-number, ' til
+               ',
+               $max-page-number)" />-->
+               <!-- use title instead of the page-number if it contains hypen as the original-->
+               <xsl:value-of
+                  select="concat('--- ',
+            if (contains($title, '-')) then $title else $page-number,
+            ' til ', $max-page-number)" />
             </div>
          </xsl:when>
          <xsl:when test="$isRomanNumeral">
             <div epub:type="pagebreak">
                <xsl:apply-templates select="@*" />
                <xsl:attribute name="title" select="$page-number" />
-               <xsl:value-of select="concat('--- ', $page-number, ' til ', $max-page-number)" />
+               <!-- <xsl:value-of select="concat('replacewithhypenhypenhypen ', $page-number, ' til
+               ',
+               $max-page-number)" />-->
+               <xsl:value-of
+                  select="concat('--- ',
+            if (contains($title, '-')) then $title else $page-number,
+            ' til ', $max-page-number)" />
             </div>
          </xsl:when>
       </xsl:choose>
