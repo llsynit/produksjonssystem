@@ -10,6 +10,8 @@ import tempfile
 import traceback
 
 from lxml import etree as ElementTree
+import xml.etree.ElementTree as ET
+
 
 from core.pipeline import Pipeline
 from core.utils.daisy_pipeline import DaisyPipelineJob
@@ -74,6 +76,40 @@ class IncomingNordic(Pipeline):
             self.utils.report.title = self.title + ": " + self.book["name"] + " feilet 😭👎" + epubTitle
             return
 
+        # Function to process attributes based on XSLT logic
+        def process_attribute(value):
+            self.utils.report.info("Processing attribute: " + value)
+            if not value.startswith("images/"):
+                return value  # Keep unchanged
+            if "/cover.jpg" in value:
+                return value  # Keep unchanged
+            if "#" in value:
+                fragment = value.split("#", 1)[1]
+                return f"images/dummy.jpg#{fragment}"
+            return "images/dummy.jpg"  # Replace with dummy image
+
+        # Function to process the XHTML document
+        def transform_xhtml(html_file):
+            tree = ET.parse(html_file)
+            root = tree.getroot()
+
+            # Define attributes to modify
+            attributes_to_modify = ["src", "href", "altimg", "longdesc"]
+
+            # Traverse XML tree
+            for elem in root.iter():
+                for attr in attributes_to_modify:
+                    if attr in elem.attrib:
+                        elem.attrib[attr] = process_attribute(elem.attrib[attr])
+
+                # Special case: @data under <object>
+                if elem.tag == "object" and "data" in elem.attrib:
+                    elem.attrib["data"] = process_attribute(elem.attrib["data"])
+
+            # Write back changes
+            tree.write(html_file, method="xml", encoding="UTF-8")
+
+
         self.utils.report.info("Lager en kopi av EPUBen med tomme bildefiler")
         temp_noimages_epubdir_obj = tempfile.TemporaryDirectory()
         temp_noimages_epubdir = temp_noimages_epubdir_obj.name
@@ -122,17 +158,19 @@ class IncomingNordic(Pipeline):
                                 html_image_references[path].append(file)
 
                         self.utils.report.info("Erstatter alle bildereferanser med images/dummy.jpg...")
+                        self.utils.report.info("Erstatter alle bildereferanser med images/dummy.jpg... i" + html_file)
                         self.utils.report.debug("dummy-jpg.xsl")
                         self.utils.report.debug("    source = " + html_file)
                         self.utils.report.debug("    target = " + temp_xml)
-                        xslt = Xslt(self,
+                        transform_xhtml(html_file)
+                        """xslt = Xslt(self,
                                     stylesheet=os.path.join(Xslt.xslt_dir, IncomingNordic.uid, "dummy-jpg.xsl"),
                                     source=html_file,
                                     target=temp_xml)
                         if not xslt.success:
                             self.utils.report.title = self.title + ": " + epub.identifier() + " feilet 😭👎" + epubTitle
                             return False
-                        shutil.copy(temp_xml, html_file)
+                        shutil.copy(temp_xml, html_file)"""
 
             # validate for the presence of image files here, since epubcheck won't be able to do it anymore after we change the EPUB
             image_files_present = []
