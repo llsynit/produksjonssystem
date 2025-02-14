@@ -8,6 +8,10 @@ import sys
 import tempfile
 
 from lxml import etree as ElementTree
+from lxml import etree
+import xml.etree.ElementTree as ET
+from bs4 import BeautifulSoup
+
 
 from core.pipeline import Pipeline
 from core.utils.epub import Epub
@@ -138,9 +142,6 @@ class PrepareForBraille(Pipeline):
             return False
         shutil.copy(temp_html, html_file)
 
-        #-----remove spaces in numbers and insert . e.g 40 000 -> 40.000--
-
-
         # ---------- hent nytt boknummer fra /html/head/meta[@name='dc:identifier'] og bruk som filnavn ----------
 
         xml_parser = ElementTree.XMLParser(encoding="utf-8")
@@ -156,7 +157,16 @@ class PrepareForBraille(Pipeline):
         os.remove(html_file)
         html_file = os.path.join(os.path.dirname(html_file), result_identifier + ".html")  # Bruk html istedenfor xhtml når det ikke er en EPUB
         shutil.copy(temp_html, html_file)
-        # TODO: sett inn HTML5 doctype: <!DOCTYPE html>
+         #-----remove pef-about and replace with epub:frontmatter--
+        #--- Temporary solution to make the merknad to appear after the toc in pef files
+        # find sections with class pef-about and  remove that class and replace it with epub:type="frontmatter"
+        self.utils.report.info("Endrer klasse pef-about til epub:type='frontmatter'")
+        soup = BeautifulSoup(open(html_file), "html.parser")
+        for section in soup.find_all("section", class_="pef-about"):
+            section["epub:type"] = "frontmatter"
+            del section["class"]
+        with open(html_file, "w") as file:
+            file.write(str(soup))
 
         # ---------- slett EPUB-spesifikke filer ----------
 
