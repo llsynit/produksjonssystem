@@ -49,54 +49,48 @@ class NordicToNlbpub(Pipeline):
         return self.on_book()
 
     def on_book(self):
-        def reorder_meta_attributes(soup):
-            """Ensure <meta> tags have 'name' before 'content' to maintain structure."""
-            for tag in soup.find_all("meta"):
-                if "name" in tag.attrs and "content" in tag.attrs:
-                    # Reconstruct the attributes in preferred order
-                    tag.attrs = {"name": tag["name"], "content": tag["content"]}
-            return soup
+
         def set_insert_metadata(temp_epubdir, status):
-            self.utils.report.info("Legger til metadata fra api i boken")
-            #<meta name="nlbprod:metadata.inserted" content="true" />
+            self.utils.report.info("Legger til metadata fra API i boken")
 
             xhtml_file = epub.identifier() + ".xhtml"
-            xhtml_file_path = os.path.normpath(os.path.join(os.path.join(temp_epubdir, "EPUB",xhtml_file)))
+            xhtml_file_path = os.path.normpath(os.path.join(temp_epubdir, "EPUB", xhtml_file))
             self.utils.report.info("xhtml_file_path: " + xhtml_file_path)
+
             if os.path.exists(xhtml_file_path):
                 try:
+                    parser = etree.XMLParser(remove_blank_text=True, recover=True)
                     with open(xhtml_file_path, 'r', encoding='utf-8') as file:
-                        filedata = file.read()
-                        soup = BeautifulSoup(filedata, 'xml')
-                   #new_meta_tag = soup.new_tag("meta", attrs={"name": "nlbprod:metadata.inserted", "content": status})
-                    new_meta_tag = soup.new_tag("meta")
-                    new_meta_tag["name"] = "nlbprod:metadata.inserted"
-                    new_meta_tag["content"] = status
+                        tree = etree.parse(file, parser)
 
-                    title_tag = soup.find("title")
-                    if title_tag:
+                    root = tree.getroot()
+                    self.utils.report.info(etree.tostring(root, pretty_print=True, encoding="unicode"))
+
+                    # Create new meta tag
+                    new_meta = etree.Element("meta", attrib={"name": "nlbprod:metadata.inserted", "content": status})
+
+                    # Look for <title> or <meta charset="utf-8">
+                    title_tag = root.find(".//title")
+                    if title_tag is not None:
                         self.utils.report.info("Title tag found. Inserting metadata after title...")
-                        title_tag.insert_after("\n", new_meta_tag, "\n")
+                        title_tag.addnext(new_meta)
                     else:
-                        self.utils.report.warn("Title tag not found. Looking for charset meta tag...")
-                        charset_meta = soup.find("meta", attrs={"charset": "utf-8"})
-                        if charset_meta:
+                        charset_meta = root.find('.//meta[@charset="utf-8"]')
+                        if charset_meta is not None:
                             self.utils.report.info("Charset meta tag found. Inserting metadata after it...")
-                            charset_meta.insert_after("\n", new_meta_tag, "\n")
+                            charset_meta.addnext(new_meta)
                         else:
                             self.utils.report.warn("Neither title tag nor charset meta tag found. Skipping metadata insertion.")
                             return
-
-                     # Reorder meta tag attributes before writing because fo bs4 bug
-                    soup = reorder_meta_attributes(soup)
-                    # Convert the soup object back to string and write to file
-                    with open(xhtml_file_path, 'w', encoding='utf-8') as file:
-                        file.write(str(soup))
+                    with open(xhtml_file_path, 'wb') as file:
+                        file.write(etree.tostring(tree, pretty_print=True, encoding='utf-8', xml_declaration=True))
 
                     self.utils.report.info("Metadata from API successfully inserted into the book.")
 
                 except Exception as e:
                     self.utils.report.error(f"Error processing XHTML file: {e}")
+            self.utils.report.warning("Finner ikke xhtml-fil for å legge til metadata.")
+
 
         self.utils.report.attachment(None, self.book["source"], "DEBUG")
         epub = Epub(self.utils.report, self.book["source"])
@@ -185,11 +179,11 @@ class NordicToNlbpub(Pipeline):
             temp_epub_html = Epub(self.utils.report, html_dir)
             is_valid = Metadata.insert_metadata(self.utils.report, temp_epub_html, publication_format="EPUB", report_metadata_errors=False)
             if is_valid:
-                self.utils.report.error("Bibliofil-metadata var valide...")
+                self.utils.report.info("Bibliofil-metadata var valide...")
                 set_insert_metadata(html_dir, "true")
             else:
                 set_insert_metadata(html_dir, "false")
-                self.utils.report.error("Bibliofil-metadata var ikke valide. .")
+                self.utils.report.warning("Bibliofil-metadata var ikke valide. .")
 
             self.utils.report.info("Boken ble konvertert. Kopierer til NLBPUB-arkiv.")
             archived_path, _ = self.utils.filesystem.storeBook(html_dir, epub.identifier(), overwrite=self.overwrite)
@@ -333,6 +327,14 @@ class NordicToNlbpub(Pipeline):
 
             nlbpub.update_prefixes()
 
+
+            is_valid = Metadata.insert_metadata(self.utils.report, nlbpub, publication_format="EPUB", report_metadata_errors=False)
+            if is_valid:
+                self.utils.report.info("Bibliofil-metadata var valide...")
+                set_insert_metadata(nlbpub.asDir(), "true")
+            else:
+                set_insert_metadata(nlbpub.asDir(), "false")
+                self.utils.report.warning("Bibliofil-metadata var ikke valide. .")
 
             self.utils.report.info("Boken ble konvertert. Kopierer til NLBPUB-arkiv.")
             archived_path, stored = self.utils.filesystem.storeBook(nlbpub.asDir(), temp_epub.identifier(), overwrite=self.overwrite)
