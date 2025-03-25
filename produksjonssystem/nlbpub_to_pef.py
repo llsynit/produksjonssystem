@@ -17,7 +17,8 @@ from core.utils.metadata import Metadata
 from core.utils.daisy_pipeline import DaisyPipelineJob
 from core.utils.filesystem import Filesystem
 from prepare_for_braille import PrepareForBraille
-from core.rabbitmq_receiver import check_braille_filename_in_queues
+from core.api_rabbitmq_receiver import check_braille_filename_in_queues
+from core.api_queue_worker import add_task
 
 if sys.version_info[0] != 3 or sys.version_info[1] < 5:
     print("# This script requires Python version 3.5+")
@@ -134,12 +135,18 @@ class NlbpubToPef(Pipeline):
     publication_format = "Braille"
     expected_processing_time = 880
 
+    options = {
+            "uid": uid,
+            "format": publication_format,
+        }
+
     def on_book_deleted(self):
         self.utils.report.info("Slettet bok i mappa: " + self.book['name'])
         self.utils.report.title = self.title + " HTML-kilde slettet: " + self.book['name']
         return True
 
     def on_book_modified(self):
+        add_task("modified",self.book['name'], self.options)
         self.utils.report.info("Endret bok i mappa: " + self.book['name'])
         return self.on_book()
 

@@ -24,7 +24,9 @@ import core.endpoints.health  # noqa
 import core.endpoints.lines  # noqa
 import core.endpoints.steps  # noqa
 import core.server  # noqa
-import core.rabbitmq_receiver  # noqa
+import core.api_rabbitmq_receiver  # noqa
+import core.api_queue_worker  # noqa
+import core.api_worker  # noqa
 
 from core.config import Config  # noqa
 from core.directory import Directory  # noqa
@@ -260,7 +262,15 @@ class Produksjonssystem():
         # but they can be overridden here
         # for instance: self.dirs_inactivity_timeouts["master"] = 300
         self.dirs_inactivity_timeouts = {}
-
+        self.pipelines = [
+          [NordicToNlbpub(retry_missing=True,
+                            overwrite=False,
+                            during_working_hours=True,
+                            during_night_and_weekend=True),   "master",              "nlbpub"],
+                            [NlbpubToPef(retry_missing=True,
+                         check_identifiers=True,
+                         during_working_hours=True),            "pub-ready-braille",   "pef"],]
+        """
         # Define pipelines and input/output/report dirs
         self.pipelines = [
             # Konvertering av gamle DTBøker til EPUB 3
@@ -366,7 +376,7 @@ class Produksjonssystem():
             #                        during_night_and_weekend=True),       "daisy202-ready",            "daisy202-dist"],
             #[MagazinesToValidation(retry_missing=False),       "pub-ready-magazine",            "daisy202-ready"],
         ]
-
+"""
     # Could possibly be moved to a configuration file
     production_lines = [
         {
@@ -529,7 +539,7 @@ class Produksjonssystem():
         self.server = core.server.start(hot_reload=False, airbrake_config=self.airbrake_config, shutdown_function=self.stop)
         #added 05.03.2024
         #Using rabbitmq to send messages to receive messages(parameters to various production pipelines) from the dashboard
-        #self.rabbitmq_receiver = core.rabbitmq_receiver.start()
+        self.rabbitmq_receiver = core.api_rabbitmq_receiver.start()
         #self.rabbitmq_receiver = core.rabbitmq_receiver.join()
 
 
@@ -538,6 +548,13 @@ class Produksjonssystem():
         #self._configThread.setDaemon(True) #deprecated
         #self._configThread.daemon = True
         #self._configThread.start()
+
+        #api_threads
+        self.api_worker = core.api_worker.start()
+        #self.api_worker = core.api_worker.join()
+
+        #self.api_task_queue_processor = core.api_task_queue_processsor.start()
+        #self.api_task_queue_processor = core.api_task_queue_processor.join()
 
 
         self._configThread = Thread(target=self._config_thread, name="config")
