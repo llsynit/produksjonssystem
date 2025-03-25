@@ -48,6 +48,7 @@ level1, level2, level3, level4, level5, level6 {
 /* -------------------------------------------------------------------------- */
 
 /* Count pages continuously but hide them in generated pages */
+/*
 @page {
     // set counter-increment explicitly because otherwise it will
     // be implicitly set to "pre-page" or "post-page" when in a
@@ -59,16 +60,98 @@ level1, level2, level3, level4, level5, level6 {
     } @else {
         margin-left: 1;
     }
+} */
+
+/* --------------------------------Fix from Bert ------------------------------------------ */
+// base page style that other page styles inherit from
+@page {
+    counter-increment: page;
 }
+
+// page style for frontmatter pages in volume 1 except title page
+@page front-first {
+    @if $show-braille-page-numbers {
+        margin-bottom: 1;
+        @bottom-center {
+            content: counter(page, lower-roman);
+        }
+    }
+}
+
+// page style for title page and backside in volumes 2, 3, ...
+@page titlepage {
+    counter-increment: front;
+}
+
+// page style for other frontmatter pages in volumes 2, 3, ...
+@page front {
+    counter-increment: front;
+    @if $show-braille-page-numbers {
+        margin-bottom: 1;
+        @bottom-center {
+            content: counter(front, lower-roman);
+        }
+    }
+}
+
+// page style for body
+@page body {
+    @if $show-braille-page-numbers {
+        margin-bottom: 1;
+        @bottom-center {
+            content: counter(page);
+        }
+    }
+}
+
+@volume {
+    @begin {
+        counter-set: front 1;
+        content: flow(titlepage, document)
+                 flow(volume-toc, document);
+        page: front;
+    }
+}
+
+@volume:first {
+    @begin {
+        content: flow(titlepage-first, document)
+                 flow(document-toc, document)
+                 flow(volume-toc, document);
+        page: front-first;
+
+    }
+}
+
+.pef-titlepage {
+    flow: titlepage-first;
+    page: auto;
+    &::duplicate {
+        flow: titlepage;
+        page: titlepage;
+    }
+}
+
+.pef-about,
+*[epub|type~='pef-about']{
+    page: front-first;
+}
+
+#generated-document-toc {
+    flow: document-toc;
+}
+
+#generated-volume-toc {
+    flow: volume-toc;
+}
+
+/* ----------------------------------End ---------------------------------------- */
+
 
 book, body {
     page: body;
 }
 
-.pef-titlepage, .pef-about,
-#generated-volume-toc, #generated-document-toc {
-    page: auto;
-}
 
 /* -------------------------------------------------------------------------- */
 /*                braille and print page numbers                              */
