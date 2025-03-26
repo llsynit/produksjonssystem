@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import logging
+import datetime
 
 from pathlib import Path
 import traceback
@@ -22,6 +23,7 @@ from core.utils.epub import Epub
 from core.utils.xslt import Xslt
 from core.utils.metadata import Metadata
 from core.utils.filesystem import Filesystem
+from core.api_queue_worker import add_task
 
 if sys.version_info[0] != 3 or sys.version_info[1] < 5:
     print("# This script requires Python version 3.5+")
@@ -34,6 +36,11 @@ class NordicToNlbpub(Pipeline):
     labels = ["EPUB", "Lydbok", "Punktskrift", "e-bok", "Statped"]
     publication_format = None
     expected_processing_time = 2000
+    options = {
+            "uid": uid,
+            "format": "masternlbpub",
+            "stage": "intermediate",
+        }
 
     def on_book_deleted(self):
         self.utils.report.info("Slettet bok i mappa: " + self.book['name'])
@@ -187,8 +194,14 @@ class NordicToNlbpub(Pipeline):
 
             self.utils.report.info("Boken ble konvertert. Kopierer til NLBPUB-arkiv.")
             archived_path, _ = self.utils.filesystem.storeBook(html_dir, epub.identifier(), overwrite=self.overwrite)
+            date_modified = datetime.datetime.now().timestamp()  # Get the current timestamp
             self.utils.report.attachment(None, archived_path, "DEBUG")
             self.utils.report.title = self.title + ": " + epub.identifier() + " ble konvertert 👍😄" + epubTitle
+            self.utils.report.info("Send task-----.")
+
+            dt_m = datetime.datetime.fromtimestamp(date_modified)  # Convert the timestamp to a datetime object
+            archived_time = dt_m.isoformat()
+            add_task("modified",epub.identifier(), self.options, archived_time)
             return True
 
         else:
@@ -340,6 +353,7 @@ class NordicToNlbpub(Pipeline):
             archived_path, stored = self.utils.filesystem.storeBook(nlbpub.asDir(), temp_epub.identifier(), overwrite=self.overwrite)
             self.utils.report.attachment(None, archived_path, "DEBUG")
             self.utils.report.title = self.title + ": " + epub.identifier() + " ble konvertert 👍😄" + epubTitle
+            add_task("modified",epub.identifier(), self.options)
             return True
 
 

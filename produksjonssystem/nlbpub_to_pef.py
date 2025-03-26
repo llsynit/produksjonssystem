@@ -138,6 +138,7 @@ class NlbpubToPef(Pipeline):
     options = {
             "uid": uid,
             "format": publication_format,
+            "stage": "output",
         }
 
     def on_book_deleted(self):
@@ -146,7 +147,6 @@ class NlbpubToPef(Pipeline):
         return True
 
     def on_book_modified(self):
-        add_task("modified",self.book['name'], self.options)
         self.utils.report.info("Endret bok i mappa: " + self.book['name'])
         return self.on_book()
 
@@ -472,6 +472,7 @@ class NlbpubToPef(Pipeline):
         self.utils.report.attachment(None, archived_path, "DEBUG")
 
         self.utils.report.title = self.title + ": " + identifier + " ble konvertert 👍😄" + bookTitle
+        add_task("modified",self.book['name'], self.options)
         return True
 
 

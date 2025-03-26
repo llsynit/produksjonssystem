@@ -26,7 +26,7 @@ import core.endpoints.steps  # noqa
 import core.server  # noqa
 import core.api_rabbitmq_receiver  # noqa
 import core.api_queue_worker  # noqa
-import core.api_worker  # noqa
+#import core.api_worker  # noqa
 
 from core.config import Config  # noqa
 from core.directory import Directory  # noqa
@@ -550,10 +550,8 @@ class Produksjonssystem():
         #self._configThread.start()
 
         #api_threads
-        self.api_worker = core.api_worker.start()
-        #self.api_worker = core.api_worker.join()
 
-        #self.api_task_queue_processor = core.api_task_queue_processsor.start()
+        self.api_task_queue_processor = core.api_queue_worker.start()
         #self.api_task_queue_processor = core.api_task_queue_processor.join()
 
 
