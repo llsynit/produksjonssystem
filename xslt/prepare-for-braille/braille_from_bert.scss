@@ -2,7 +2,6 @@
 @namespace epub 'http://www.idpf.org/2007/ops';
 @namespace xml 'http://www.w3.org/XML/1998/namespace';
 
-
 /* Declare parameters. Values are passed in from nlb:dtbook-to-pef. */
 $show-print-page-numbers: false !default;
 $show-braille-page-numbers: false !default;
@@ -44,28 +43,13 @@ level1, level2, level3, level4, level5, level6 {
 /*                page                                                        */
 /* -------------------------------------------------------------------------- */
 
-/* Count pages continuously but hide them in generated pages */
-/*
-@page {
-    // set counter-increment explicitly because otherwise it will
-    // be implicitly set to "pre-page" or "post-page" when in a
-    // volume area context.
-    counter-increment: page;
-    margin-right: 2;
-    @if $show-print-page-numbers {
-        margin-left: 2;
-    } @else {
-        margin-left: 1;
-    }
-} */
-
-/* --------------------------------Fix from Bert ------------------------------------------ */
+// added by Bert:
 // base page style that other page styles inherit from
 @page {
     counter-increment: page;
 }
 
-<<<<<<< Updated upstream
+// added by Bert:
 // page style for frontmatter pages in volume 1 except title page
 @page front-first {
     @if $show-braille-page-numbers {
@@ -76,11 +60,13 @@ level1, level2, level3, level4, level5, level6 {
     }
 }
 
+// added by Bert:
 // page style for title page and backside in volumes 2, 3, ...
 @page titlepage {
     counter-increment: front;
 }
 
+// added by Bert:
 // page style for other frontmatter pages in volumes 2, 3, ...
 @page front {
     counter-increment: front;
@@ -91,86 +77,6 @@ level1, level2, level3, level4, level5, level6 {
         }
     }
 }
-
-// page style for body
-@page body {
-    @if $show-braille-page-numbers {
-        margin-bottom: 1;
-        @bottom-center {
-            content: counter(page);
-        }
-    }
-}
-
-@volume {
-    @begin {
-        counter-set: front 1;
-        content: flow(titlepage, document)
-                 flow(volume-toc, document);
-        page: front;
-    }
-}
-
-@volume:first {
-    @begin {
-        content: flow(titlepage-first, document)
-                 flow(document-toc, document)
-                 flow(volume-toc, document);
-        page: front-first;
-
-    }
-}
-
-.pef-titlepage {
-    flow: titlepage-first;
-    page: auto;
-    &::duplicate {
-        flow: titlepage;
-        page: titlepage;
-    }
-}
-
-.pef-about,
-*[epub|type~='pef-about']{
-    page: front-first;
-}
-
-#generated-document-toc {
-    flow: document-toc;
-}
-
-#generated-volume-toc {
-    flow: volume-toc;
-}
-
-/* ----------------------------------End ---------------------------------------- */
-=======
-/* Define TOC pages with Roman numerals */
-@page toc-pages {
-    counter-reset: toc-page 1;   // Reset TOC counter at the start of each volume
-    counter-increment: none;     // Prevent global page count from increasing
-
-    @bottom-center {
-        content: counter(toc-page, lower-roman);  // Display Roman numerals
-    }
-}
-
-/* Ensure TOC sections use the correct page definition */
-.pef-titlepage, .pef-about, #generated-document-toc, #generated-volume-toc {
-    page: toc-pages;
-}
-
-/* Ensure regular pages use the normal counter */
-@page:not(toc-pages) {
-    counter-increment: page;   // Only increment page counter for normal pages
-    @bottom-center {
-        content: counter(page); // Display normal page numbers
-    }
-}
-
-
->>>>>>> Stashed changes
-
 
 book, body {
     page: body;
@@ -187,8 +93,6 @@ book, body {
     }
 }*/
 
-<<<<<<< Updated upstream
-=======
 /*
 .pef-titlepage, .pef-about, #generated-volume-toc, #generated-document-toc {
     page: auto;
@@ -215,7 +119,6 @@ book, body {
 
 
 
->>>>>>> Stashed changes
 
 /* -------------------------------------------------------------------------- */
 /*                braille and print page numbers                              */
@@ -430,26 +333,31 @@ section {
 /* -------------------------------------------------------------------------- */
 
 /* Insert generated content at start of volume */
+
 @volume {
     @begin {
-           content: flow(front, document) flow(volume-toc, document);
-           /* print both doc-toc and volume toc in each volume with different toc-levels */
-         /*  content: flow(front) flow(front-first) flow(document-toc) flow(volume-toc);   */
-
+        counter-set: front 1; // added by Bert
+        content: flow(titlepage, document) flow(volume-toc, document); // changed by Bert
+        page: front; // added by Bert
     }
 }
-@volume :first {
+@volume:first {
     @begin {
-           content: flow(front, document) flow(front-first, document) flow(document-toc, document) flow(volume-toc, document);
-         /*    content: flow(front) flow(front-first) flow(volume-toc);*/
-
+        content: flow(titlepage-first, document) flow(document-toc, document) flow(volume-toc, document); // changed by Bert
+        page: front-first; // added by Bert
     }
 }
 
 /* this elements is generated by insert-boilerplate.xsl
 * it is inserted in the frontmatter (first body) before the first level1 (section) */
 .pef-titlepage {
-    flow: front;
+    flow: titlepage-first; // changed by Bert
+    page: auto; // added by Bert:
+    &::duplicate {
+        flow: titlepage; // added by Bert:
+        page: titlepage; // added by Bert:
+    }
+
     display: block;
    /* volume-break-after: avoid;*/
     text-transform: uncontracted;
@@ -657,6 +565,10 @@ html:has(> head > meta[name="dc:language"][content|="nb"]) #generated-volume-toc
     /* volume-break-after: avoid;*/
 }
 
+.pef-about,
+*[epub|type~='pef-about']{
+    page: front-first; // added by Bert
+}
 
 /* Page count */
 .pef-pages {

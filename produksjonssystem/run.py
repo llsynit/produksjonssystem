@@ -262,14 +262,10 @@ class Produksjonssystem():
         # but they can be overridden here
         # for instance: self.dirs_inactivity_timeouts["master"] = 300
         self.dirs_inactivity_timeouts = {}
-        self.pipelines = [
-          [NordicToNlbpub(retry_missing=True,
-                            overwrite=False,
-                            during_working_hours=True,
-                            during_night_and_weekend=True),   "master",              "nlbpub"],
-                            [NlbpubToPef(retry_missing=True,
+        self.pipelines = [ [NlbpubToPef(retry_missing=True,
                          check_identifiers=True,
-                         during_working_hours=True),            "pub-ready-braille",   "pef"],]
+                         during_working_hours=True),            "pub-ready-braille",   "pef"],
+            ]
         """
         # Define pipelines and input/output/report dirs
         self.pipelines = [
@@ -375,8 +371,8 @@ class Produksjonssystem():
             #                        during_working_hours=True,
             #                        during_night_and_weekend=True),       "daisy202-ready",            "daisy202-dist"],
             #[MagazinesToValidation(retry_missing=False),       "pub-ready-magazine",            "daisy202-ready"],
-        ]
-"""
+        ] """
+
     # Could possibly be moved to a configuration file
     production_lines = [
         {
