@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import os
 import tempfile
+import datetime
 from pathlib import Path
 from bs4 import BeautifulSoup
 
@@ -9,6 +10,8 @@ from core.pipeline import DummyPipeline, Pipeline
 from core.utils.epub import Epub
 from core.utils.metadata import Metadata
 from core.utils.filesystem import Filesystem
+from core.api_queue_worker import add_task
+from core.api_worker import ApiWorker
 
 
 class InsertMetadata(Pipeline):
@@ -20,6 +23,7 @@ class InsertMetadata(Pipeline):
     labels = ["Statped"]
     publication_format = None
     expected_processing_time = 500
+    attributes = {}
 
     logPipeline = None
 
@@ -142,6 +146,8 @@ class InsertMetadata(Pipeline):
         if not metadata_valid:
             self.utils.report.info("{} har feil i metadata for {}. Avbryter.".format(epub.identifier(), self.publication_format))
             self.utils.report.title = "{}: {} har feil i metadata for {} 😭👎 {}".format(self.title, epub.identifier(), self.publication_format, epubTitle)
+            message = "{}: {} har feil i metadata for {} 😭👎 {}".format(self.title, epub.identifier(), self.publication_format, epubTitle)
+            ApiWorker.notify(epub.identifier(), "fail", message)
             return False
         if not should_produce:
             self.utils.report.info("{} skal ikke produseres som {}. Avbryter.".format(epub.identifier(), self.publication_format))
@@ -172,10 +178,18 @@ class InsertMetadata(Pipeline):
 
         archived_path, stored = self.utils.filesystem.storeBook(temp_epub.asDir(), epub.identifier())
         self.utils.report.attachment(None, archived_path, "DEBUG")
+        date_modified = datetime.datetime.now().timestamp()  # Get the current timestamp
 
         self.utils.report.title = "{}: {} har fått {}-spesifikk metadata og er klar til å produseres 👍😄 {}".format(
             self.title, epub.identifier(), self.publication_format, temp_epub.meta("dc:title"))
+        dt_m = datetime.datetime.fromtimestamp(date_modified)  # Convert the timestamp to a datetime object
+        archived_time = dt_m.isoformat()
 
+        self.attributes["date_modified"] = archived_time
+        add_task(self.uid,epub.identifier(), self.attributes)
+        message = "{}: {} har fått {}-spesifikk metadata og er klar til å produseres 👍😄 {}".format(
+            self.title, epub.identifier(), self.publication_format, temp_epub.meta("dc:title"))
+        ApiWorker.notify(epub.identifier(), "success", message)
         return True
 
 
@@ -185,7 +199,10 @@ class InsertMetadataDaisy202(InsertMetadata):
     labels = ["Lydbok", "Metadata", "Statped"]
     publication_format = "DAISY 2.02"
     expected_processing_time = 500
-
+    attributes = {
+            "edition": "daisy202",
+            "stage": "utgaveinnlydbok",
+        }
 
 class InsertMetadataXhtml(InsertMetadata):
     uid = "insert-metadata-xhtml"
@@ -193,6 +210,10 @@ class InsertMetadataXhtml(InsertMetadata):
     labels = ["e-bok", "Metadata", "Statped"]
     publication_format = "XHTML"
     expected_processing_time = 500
+    attributes = {
+            "edition": "html",
+            "stage": "utgaveinnetekst",
+        }
 
 
 class InsertMetadataBraille(InsertMetadata):
@@ -201,3 +222,7 @@ class InsertMetadataBraille(InsertMetadata):
     labels = ["Punktskrift", "Metadata", "Statped"]
     publication_format = "Braille"
     expected_processing_time = 500
+    attributes = {
+            "edition": "pef",
+            "stage": "utgaveinnpunktskrift",
+        }

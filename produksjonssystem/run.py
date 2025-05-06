@@ -263,16 +263,77 @@ class Produksjonssystem():
         # for instance: self.dirs_inactivity_timeouts["master"] = 300
         self.dirs_inactivity_timeouts = {}
         self.pipelines = [
+            [IncomingNordic(retry_all=True,
+                            during_working_hours=True,
+                            during_night_and_weekend=True),       "incoming",            "master"],
           [NordicToNlbpub(retry_missing=True,
                             overwrite=False,
                             during_working_hours=True,
                             during_night_and_weekend=True),   "master",              "nlbpub"],
-                            [NlbpubToPef(retry_missing=True,
+
+
+        [InsertMetadataXhtml(retry_missing=True,
+                                 retry_old=True,
+                                 retry_complete=True,
+                                 check_identifiers=True,
+                                 during_night_and_weekend=True,
+                                 during_working_hours=True),    "nlbpub",              "pub-in-ebook"],
+        [PrepareForDocx(retry_missing=True,
+                            check_identifiers=True,
+                            during_working_hours=True),         "pub-in-ebook",        "pub-ready-docx"],
+        [NLBpubToDocx(retry_missing=True,
+                          check_identifiers=True,
+                          during_working_hours=True),           "pub-ready-docx",      "docx"],
+
+         [InsertMetadataDaisy202(retry_missing=True,
+                                    check_identifiers=True,
+                                    during_working_hours=True), "nlbpub",              "pub-in-audio"],
+        [InsertMetadataBraille(retry_missing=True,
+                                   check_identifiers=True,
+                                   during_working_hours=True),  "nlbpub",              "pub-in-braille"],
+        [PrepareForBraille(retry_missing=True,
+                               check_identifiers=True,
+                               during_working_hours=True),      "pub-in-braille",      "pub-ready-braille"],
+        [NlbpubToPef(retry_missing=True,
                          check_identifiers=True,
-                         during_working_hours=True),            "pub-ready-braille",   "pef"],]
+                         during_working_hours=True),            "pub-ready-braille",   "pef"],
+
+
+        ]
+        #self.pipelines = [
+
+        """ [IncomingNordic(retry_all=True,
+                            during_working_hours=True,
+                            during_night_and_weekend=True),       "incoming",            "master"],
+          [NordicToNlbpub(retry_missing=True,
+                            overwrite=False,
+                            during_working_hours=True,
+                            during_night_and_weekend=True),   "master",              "nlbpub"],
+        [InsertMetadataBraille(retry_missing=True,
+                                   check_identifiers=True,
+                                   during_working_hours=True),  "nlbpub",              "pub-in-braille"],
+        [PrepareForBraille(retry_missing=True,
+                               check_identifiers=True,
+                               during_working_hours=True),      "pub-in-braille",      "pub-ready-braille"],
+         [NlbpubToPef(retry_missing=True,
+                         check_identifiers=True,
+                         during_working_hours=True),            "pub-ready-braille",   "pef"],
+
+         [InsertMetadataXhtml(retry_missing=True,
+                                 retry_old=True,
+                                 retry_complete=True,
+                                 check_identifiers=True,
+                                 during_night_and_weekend=True,
+                                 during_working_hours=True),    "nlbpub",              "pub-in-ebook"],
+         [InsertMetadataDaisy202(retry_missing=True,
+                                    check_identifiers=True,
+                                    during_working_hours=True), "nlbpub",              "pub-in-audio"],
+
         """
+        #]
+
         # Define pipelines and input/output/report dirs
-        self.pipelines = [
+        """self.pipelines = [
             # Konvertering av gamle DTBøker til EPUB 3
             # [NordicDTBookToEpub(retry_missing=True,
             #                     only_when_idle=True),         "old_dtbook",          "epub_from_dtbook"],
@@ -316,10 +377,13 @@ class Produksjonssystem():
             [PrepareForDocx(retry_missing=True,
                             check_identifiers=True,
                             during_working_hours=True),         "pub-in-ebook",        "pub-ready-docx"],
-            [NlbpubToEpub(retry_missing=True,
-                          check_identifiers=True,
-                          during_working_hours=True,
-                          during_night_and_weekend=True),       "pub-ready-ebook",     "epub-ebook"],
+
+
+
+            #[NlbpubToEpub(retry_missing=True,
+            #             check_identifiers=True,
+            #           during_working_hours=True,
+            #            during_night_and_weekend=True),       "pub-ready-ebook",     "epub-ebook"],
             [NlbpubToHtml(retry_missing=True,
                           check_identifiers=True,
                           during_working_hours=True),           "pub-ready-ebook",     "html"],
@@ -375,8 +439,8 @@ class Produksjonssystem():
             #                        during_working_hours=True,
             #                        during_night_and_weekend=True),       "daisy202-ready",            "daisy202-dist"],
             #[MagazinesToValidation(retry_missing=False),       "pub-ready-magazine",            "daisy202-ready"],
-        ]
-"""
+        ]"""
+
     # Could possibly be moved to a configuration file
     production_lines = [
         {

@@ -6,6 +6,7 @@ import re
 import shutil
 import sys
 import tempfile
+import datetime
 
 from lxml import etree as ElementTree
 from lxml import etree
@@ -17,6 +18,9 @@ from core.pipeline import Pipeline
 from core.utils.epub import Epub
 from core.utils.xslt import Xslt
 from core.utils.filesystem import Filesystem
+from core.api_queue_worker import add_task
+from core.api_worker import ApiWorker
+
 
 if sys.version_info[0] != 3 or sys.version_info[1] < 5:
     print("# This script requires Python version 3.5+")
@@ -30,6 +34,12 @@ class PrepareForBraille(Pipeline):
     publication_format = "Braille"
     expected_processing_time = 450
 
+
+    attributes = {
+            "edition": "pef",
+            "stage": "utgaveklargjortpunktskrift",
+        }
+    message =""
     def on_book_deleted(self):
         self.utils.report.info("Slettet bok i mappa: " + self.book['name'])
         self.utils.report.title = self.title + " EPUB master slettet: " + self.book['name']
@@ -56,11 +66,14 @@ class PrepareForBraille(Pipeline):
         # sjekk at dette er en EPUB
         if not epub.isepub():
             self.utils.report.title = self.title + ": " + self.book["name"] + " feilet 😭👎"
+            message = self.title + ": " + self.book["name"] + " feilet 😭👎"
+            ApiWorker.notify(epub.identifier(), "fail", message)
             return
 
         if not epub.identifier():
             self.utils.report.error(self.book["name"] + ": Klarte ikke å bestemme boknummer basert på dc:identifier.")
             self.utils.report.title = self.title + ": " + self.book["name"] + " feilet 😭👎"
+            ApiWorker.notify(epub.identifier(), "fail", message)
             return False
 
         # ---------- lag en kopi av EPUBen ----------
@@ -76,6 +89,7 @@ class PrepareForBraille(Pipeline):
         if not opf_path:
             self.utils.report.error(self.book["name"] + ": Klarte ikke å finne OPF-fila i EPUBen.")
             self.utils.report.title = self.title + ": " + self.book["name"] + " feilet 😭👎" + epubTitle
+            ApiWorker.notify(epub.identifier(), "fail", message)
             return False
         opf_path = os.path.join(temp_epubdir, opf_path)
         xml_parser = ElementTree.XMLParser(encoding="utf-8")
@@ -86,11 +100,13 @@ class PrepareForBraille(Pipeline):
         if not html_file:
             self.utils.report.error(self.book["name"] + ": Klarte ikke å finne HTML-fila i OPFen.")
             self.utils.report.title = self.title + ": " + self.book["name"] + " feilet 😭👎" + epubTitle
+            ApiWorker.notify(epub.identifier(), "fail", message)
             return False
         html_file = os.path.join(os.path.dirname(opf_path), html_file)
         if not os.path.isfile(html_file):
             self.utils.report.error(self.book["name"] + ": Klarte ikke å finne HTML-fila.")
             self.utils.report.title = self.title + ": " + self.book["name"] + " feilet 😭👎" + epubTitle
+            ApiWorker.notify(epub.identifier(), "fail", message)
             return False
 
         temp_html_obj = tempfile.NamedTemporaryFile()
@@ -104,6 +120,7 @@ class PrepareForBraille(Pipeline):
                     report=self.utils.report)
         if not xslt.success:
             report_title = self.title + ": " + str(epub.identifier()) + " feilet 😭👎" + str(epubTitle)
+            ApiWorker.notify(epub.identifier(), "fail", message)
             self.utils.report.title = report_title
             return False
         shutil.copy(temp_html, html_file)
@@ -116,6 +133,7 @@ class PrepareForBraille(Pipeline):
                     report=self.utils.report)
         if not xslt.success:
             report_title = self.title + ": " + str(epub.identifier() or "") + " feilet 😭👎" + str(epubTitle)
+            ApiWorker.notify(epub.identifier(), "fail", message)
             self.utils.report.title = report_title
             return False
         shutil.copy(temp_html, html_file)
@@ -128,6 +146,7 @@ class PrepareForBraille(Pipeline):
                     report=self.utils.report)
         if not xslt.success:
             self.utils.report.title = self.title + ": " + str(epub.identifier() or "") + " feilet 😭👎" + epubTitle
+            ApiWorker.notify(epub.identifier(), "fail", message)
             return False
         shutil.copy(temp_html, html_file)
 
@@ -139,6 +158,7 @@ class PrepareForBraille(Pipeline):
                     report=self.utils.report)
         if not xslt.success:
             self.utils.report.title = self.title + ": " + str(epub.identifier() or "") + " feilet 😭👎" + epubTitle
+            ApiWorker.notify(epub.identifier(), "fail", message)
             return False
         shutil.copy(temp_html, html_file)
 
@@ -151,6 +171,7 @@ class PrepareForBraille(Pipeline):
         if not result_identifier:
             self.utils.report.error(self.book["name"] + ": Klarte ikke å finne boknummer i ny HTML-fil.")
             self.utils.report.title = self.title + ": " + self.book["name"] + " feilet 😭👎" + epubTitle
+            ApiWorker.notify(epub.identifier(), "fail", message)
             return False
 
         shutil.copy(html_file, temp_html)
@@ -197,8 +218,15 @@ class PrepareForBraille(Pipeline):
         self.utils.report.info("Boken ble konvertert. Kopierer til arkiv for punkt-klare HTML-filer.")
 
         archived_path, stored = self.utils.filesystem.storeBook(html_dir, self.book["name"])
+        date_modified = datetime.datetime.now().timestamp()
         self.utils.report.attachment(None, archived_path, "DEBUG")
         self.utils.report.title = self.title + ": " + self.book["name"] + " ble konvertert 👍😄" + epubTitle
+        dt_m = datetime.datetime.fromtimestamp(date_modified)
+        archived_time = dt_m.isoformat()
+        self.attributes["date_modified"] = archived_time
+        add_task(self.uid,epub.identifier(), self.attributes)
+        message = self.title + ": " + self.book["name"] + " ble konvertert 👍😄" + epubTitle
+        ApiWorker.notify(epub.identifier(), "success", message)
         return True
 
 

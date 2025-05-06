@@ -8,6 +8,9 @@ import sys
 import tempfile
 import traceback
 import zipfile
+from pathlib import Path
+import datetime
+
 
 import re
 from bs4 import BeautifulSoup
@@ -25,7 +28,10 @@ from core.utils.epub import Epub
 from core.utils.xslt import Xslt
 from core.utils.filesystem import Filesystem
 
-from pathlib import Path
+from core.api_queue_worker import add_task
+from core.api_worker import ApiWorker
+
+
 
 if sys.version_info[0] != 3 or sys.version_info[1] < 5:
     print("# This script requires Python version 3.5+")
@@ -37,6 +43,12 @@ class NLBpubToDocx(Pipeline):
     labels = ["e-bok", "Statped"]
     publication_format = "XHTML"
     expected_processing_time = 370
+
+    attributes = {
+            "edition": "docx",
+            "stage": "utgaveutdocx",
+        }
+    message =""
 
     xslt_dir = os.path.realpath(os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "xslt"))
 
@@ -66,11 +78,15 @@ class NLBpubToDocx(Pipeline):
         # sjekk at dette er en EPUB
         if not epub.isepub():
             self.utils.report.title = self.title + ": " + self.book["name"] + " feilet 😭👎"
+            message = self.title + ": " + self.book["name"] + " feilet 😭👎"
+            ApiWorker.notify(epub.identifier(), "error", message)
             return False
 
         if not epub.identifier():
             self.utils.report.error(self.book["name"] + ": Klarte ikke å bestemme boknummer basert på dc:identifier.")
             self.utils.report.title = self.title + ": " + self.book["name"] + " feilet 😭👎"
+            message = self.title + ": " + self.book["name"] + " feilet 😭👎"
+            ApiWorker.notify(epub.identifier(), "error", message)
             return False
 
         # language must be exctracted from epub or else docx default language (nb) wil be used in the converted file
@@ -95,6 +111,8 @@ class NLBpubToDocx(Pipeline):
         if not opf_path:
             self.utils.report.error(self.book["name"] + ": Klarte ikke å finne OPF-fila i EPUBen.")
             self.utils.report.title = self.title + ": " + self.book["name"] + " feilet 😭👎" + epubTitle
+            message = self.title + ": " + self.book["name"] + " feilet 😭👎" + epubTitle
+            ApiWorker.notify(epub.identifier(), "error", message)
             return False
         opf_path = os.path.join(temp_epubdir, opf_path)
         opf_xml = ElementTree.parse(opf_path).getroot()
@@ -104,11 +122,15 @@ class NLBpubToDocx(Pipeline):
         if not html_file:
             self.utils.report.error(self.book["name"] + ": Klarte ikke å finne HTML-fila i OPFen.")
             self.utils.report.title = self.title + ": " + self.book["name"] + " feilet 😭👎" + epubTitle
+            message = self.title + ": " + self.book["name"] + " feilet 😭👎" + epubTitle
+            ApiWorker.notify(epub.identifier(), "error", message)
             return False
         html_file = os.path.join(os.path.dirname(opf_path), html_file)
         if not os.path.isfile(html_file):
             self.utils.report.error(self.book["name"] + ": Klarte ikke å finne HTML-fila.")
             self.utils.report.title = self.title + ": " + self.book["name"] + " feilet 😭👎" + epubTitle
+            message = self.title + ": " + self.book["name"] + " feilet 😭👎" + epubTitle
+            ApiWorker.notify(epub.identifier(), "error", message)
             return False
 
         temp_xml_file_obj = tempfile.NamedTemporaryFile()
@@ -350,22 +372,35 @@ class NLBpubToDocx(Pipeline):
                 self.utils.report.error("En feil oppstod ved konvertering til DOCX for " + epub.identifier())
                 self.utils.report.debug(traceback.format_stack())
                 self.utils.report.title = self.title + ": " + self.book["name"] + " feilet 😭👎" + epubTitle
+                message = self.title + ": " + self.book["name"] + " feilet 😭👎" + epubTitle
+                ApiWorker.notify(epub.identifier(), "error", message)
                 return False
 
         except subprocess.TimeoutExpired:
             self.utils.report.error("Det tok for lang tid å konvertere " + epub.identifier() + " til DOCX, og Calibre-prosessen ble derfor stoppet.")
             self.utils.report.title = self.title + ": " + self.book["name"] + " feilet 😭👎" + epubTitle
+            message = self.title + ": " + self.book["name"] + " feilet 😭👎" + epubTitle
+            ApiWorker.notify(epub.identifier(), "error", message)
             return False
 
         except Exception:
             self.utils.report.error("En feil oppstod ved konvertering til DOCX for " + epub.identifier())
             self.utils.report.info(traceback.format_exc(), preformatted=True)
             self.utils.report.title = self.title + ": " + self.book["name"] + " feilet 😭👎" + epubTitle
+            message = self.title + ": " + self.book["name"] + " feilet 😭👎" + epubTitle
+            ApiWorker.notify(epub.identifier(), "error", message)
             return False
 
         archived_path, stored = self.utils.filesystem.storeBook(temp_docxdir, epub.identifier())
+        date_modified = datetime.datetime.now().timestamp()
         self.utils.report.attachment(None, archived_path, "DEBUG")
         self.utils.report.title = self.title + ": " + epub.identifier() + " ble konvertert 👍😄" + epubTitle
+        dt_m = datetime.datetime.fromtimestamp(date_modified)
+        archived_time = dt_m.isoformat()
+        self.attributes["date_modified"] = archived_time
+        add_task(self.uid,epub.identifier(), self.attributes)
+        message = self.title + ": " + self.book["name"] + " ble konvertert 👍😄" + epubTitle
+        ApiWorker.notify(epub.identifier(), "success", message)
         return True
 
 if __name__ == "__main__":

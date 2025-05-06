@@ -145,6 +145,7 @@ class NlbpubToHtml(Pipeline):
         self.utils.report.info("Boken ble konvertert. Kopierer til HTML-arkiv.")
 
         archived_path, stored = self.utils.filesystem.storeBook(html_dir, result_identifier)
+
         self.utils.report.attachment(None, archived_path, "DEBUG")
         self.utils.report.title = self.title + ": " + epub.identifier() + " ble konvertert 👍😄" + epubTitle
         return True

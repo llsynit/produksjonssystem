@@ -8,6 +8,8 @@ import tempfile
 import traceback
 import pika
 from typing import List, Optional, Tuple
+import datetime
+
 
 from lxml import etree as ElementTree
 
@@ -19,6 +21,8 @@ from core.utils.filesystem import Filesystem
 from prepare_for_braille import PrepareForBraille
 from core.api_rabbitmq_receiver import check_braille_filename_in_queues
 from core.api_queue_worker import add_task
+from core.api_worker import ApiWorker
+
 
 if sys.version_info[0] != 3 or sys.version_info[1] < 5:
     print("# This script requires Python version 3.5+")
@@ -135,10 +139,9 @@ class NlbpubToPef(Pipeline):
     publication_format = "Braille"
     expected_processing_time = 880
 
-    options = {
-            "uid": uid,
-            "format": publication_format,
-            "stage": "output",
+    attributes = {
+            "format": "pef",
+            "stage": "utgaveutpef",
         }
 
     def on_book_deleted(self):
@@ -406,6 +409,8 @@ class NlbpubToPef(Pipeline):
             if dp2_job.status != "SUCCESS":
                 self.utils.report.info("Klarte ikke å konvertere boken")
                 self.utils.report.title = self.title + ": " + identifier + " feilet 😭👎" + bookTitle
+                message = self.title + ": " + identifier + " feilet 😭👎" + bookTitle
+                ApiWorker.notify(identifier, "fail", message)
                 return False
 
             dp2_pef_dir = os.path.join(dp2_job.dir_output, "pef-output-dir")
@@ -421,6 +426,8 @@ class NlbpubToPef(Pipeline):
             if not os.path.isdir(dp2_pef_dir):
                 self.utils.report.info("Finner ikke den konverterte boken.")
                 self.utils.report.title = self.title + ": " + identifier + " feilet 😭👎" + bookTitle
+                message = self.title + ": " + identifier + " feilet 😭👎" + bookTitle
+                ApiWorker.notify(identifier, "fail", message)
                 return False
 
             Filesystem.copy(self.utils.report, dp2_pef_dir, pef_tempdir_object.name)
@@ -468,11 +475,16 @@ class NlbpubToPef(Pipeline):
             Filesystem.copy(self.utils.report,
                             os.path.join(dp2_job.dir_output, "preview"),
                             os.path.join(archived_path, "preview"))
-
+        date_modified = datetime.datetime.now().timestamp()
         self.utils.report.attachment(None, archived_path, "DEBUG")
 
         self.utils.report.title = self.title + ": " + identifier + " ble konvertert 👍😄" + bookTitle
-        add_task("modified",self.book['name'], self.options)
+        dt_m = datetime.datetime.fromtimestamp(date_modified)
+        archived_time = dt_m.isoformat()
+        self.attributes["date_modified"] = archived_time
+        add_task(self.uid, identifier, self.attributes)
+        message = self.title + ": " + identifier + " ble konvertert 👍😄" + bookTitle
+        ApiWorker.notify(identifier, "success", message)
         return True
 
 

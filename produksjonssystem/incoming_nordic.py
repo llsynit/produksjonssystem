@@ -19,6 +19,7 @@ from core.utils.epub import Epub
 from core.utils.filesystem import Filesystem
 from core.utils.mathml_to_text import Mathml_validator
 from core.utils.xslt import Xslt
+from core.api_worker import ApiWorker
 
 if sys.version_info[0] != 3 or sys.version_info[1] < 5:
     print("# This script requires Python version 3.5+")
@@ -60,6 +61,10 @@ class IncomingNordic(Pipeline):
         return self.on_book()
 
     def on_book(self):
+
+        def send_notification(production_number, status, message):
+            ApiWorker.notify(production_number, status, message)
+
         epub = Epub(self.utils.report, self.book["source"])
         epubTitle = ""
         try:
@@ -69,11 +74,14 @@ class IncomingNordic(Pipeline):
         # sjekk at dette er en EPUB
         if not epub.isepub():
             self.utils.report.title = self.title + ": " + self.book["name"] + " feilet 😭👎" + epubTitle
+            send_notification(epub.identifier(), "fail", self.title + ": " + self.book["name"] + " feilet 😭👎" + epubTitle)
+
             return
 
         if not epub.identifier():
             self.utils.report.error(self.book["name"] + ": Klarte ikke å bestemme boknummer basert på dc:identifier.")
             self.utils.report.title = self.title + ": " + self.book["name"] + " feilet 😭👎" + epubTitle
+            send_notification(epub.identifier(), "fail", self.title + ": " + self.book["name"] + " feilet 😭👎" + epubTitle)
             return
 
         # Function to process attributes based on XSLT logic
@@ -195,6 +203,7 @@ class IncomingNordic(Pipeline):
                     image_error = True
             if image_error:
                 self.utils.report.title = self.title + ": " + epub.identifier() + " feilet 😭👎" + epubTitle
+                send_notification(epub.identifier(), "fail", self.title + ": " + self.book["name"] + " feilet 😭👎" + epubTitle)
                 return False
 
             for root, dirs, files in os.walk(os.path.join(temp_noimages_epubdir, "EPUB", "images")):
@@ -236,6 +245,7 @@ class IncomingNordic(Pipeline):
             if dp2_job.status != "SUCCESS":
                 self.utils.report.error("Klarte ikke å validere boken")
                 self.utils.report.title = self.title + ": " + epub.identifier() + " feilet 😭👎" + epubTitle
+                send_notification(epub.identifier(), "fail", self.title + ": " + self.book["name"] + " feilet 😭👎" + epubTitle)
                 return
 
         self.utils.report.debug("Making a copy of the EPUB to work on…")
@@ -299,6 +309,8 @@ class IncomingNordic(Pipeline):
         archived_path, stored = self.utils.filesystem.storeBook(epub_fixed.asDir(), epub.identifier())
         self.utils.report.attachment(None, archived_path, "DEBUG")
         self.utils.report.title = self.title + ": " + epub.identifier() + " er valid 👍😄" + epubTitle
+        send_notification(epub.identifier(), "success", self.title + ": " + self.book["name"] + " er valid 👍😄" + epubTitle)
+
         self.utils.filesystem.deleteSource()
         return True
 

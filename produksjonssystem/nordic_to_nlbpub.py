@@ -24,6 +24,7 @@ from core.utils.xslt import Xslt
 from core.utils.metadata import Metadata
 from core.utils.filesystem import Filesystem
 from core.api_queue_worker import add_task
+from core.api_worker import ApiWorker
 
 if sys.version_info[0] != 3 or sys.version_info[1] < 5:
     print("# This script requires Python version 3.5+")
@@ -37,9 +38,9 @@ class NordicToNlbpub(Pipeline):
     publication_format = None
     expected_processing_time = 2000
     options = {
-            "uid": uid,
-            "format": "masternlbpub",
-            "stage": "intermediate",
+            "edition": "masternlbpub",
+            "stage": "masternlbpub",
+            "server_name": os.environ.get('SERVER_NAME'),
         }
 
     def on_book_deleted(self):
@@ -62,7 +63,6 @@ class NordicToNlbpub(Pipeline):
 
             xhtml_file = epub.identifier() + ".xhtml"
             xhtml_file_path = os.path.normpath(os.path.join(temp_epubdir, "EPUB", xhtml_file))
-            self.utils.report.info("xhtml_file_path: " + xhtml_file_path)
 
             if os.path.exists(xhtml_file_path):
                 try:
@@ -172,6 +172,8 @@ class NordicToNlbpub(Pipeline):
 
             if not success:
                 self.utils.report.error("Klarte ikke å konvertere boken")
+                message = self.title + ": " + epub.identifier() + " ble ikke konvertert 👎😭" + epubTitle
+                ApiWorker.notify(epub.identifier(), "fail", message)
                 return False
 
             self.utils.report.debug("Output directory contains: " + str(os.listdir(html_dir)))
@@ -201,7 +203,12 @@ class NordicToNlbpub(Pipeline):
 
             dt_m = datetime.datetime.fromtimestamp(date_modified)  # Convert the timestamp to a datetime object
             archived_time = dt_m.isoformat()
-            add_task("modified",epub.identifier(), self.options, archived_time)
+
+            self.options["date_modified"] = archived_time
+            self.options["guidelines"] = meta_name_content
+            add_task(self.uid,epub.identifier(), self.options)
+            message = self.title + ": " + epub.identifier() + " ble konvertert 👍😄" + epubTitle
+            ApiWorker.notify(epub.identifier(), "success", message)
             return True
 
         else:
@@ -281,6 +288,8 @@ class NordicToNlbpub(Pipeline):
 
                 if convert_status != "SUCCESS":
                     self.utils.report.error("Klarte ikke å konvertere boken")
+                    message = self.title + ": " + epub.identifier() + " ble ikke konvertert 👎😭" + epubTitle
+                    ApiWorker.notify(epub.identifier(), "fail", message)
                     return False
 
                 dp2_html_dir = os.path.join(dp2_job_convert.dir_output, "output-dir", epub.identifier())
@@ -351,9 +360,17 @@ class NordicToNlbpub(Pipeline):
 
             self.utils.report.info("Boken ble konvertert. Kopierer til NLBPUB-arkiv.")
             archived_path, stored = self.utils.filesystem.storeBook(nlbpub.asDir(), temp_epub.identifier(), overwrite=self.overwrite)
+            date_modified = datetime.datetime.now().timestamp()  # Get the current timestamp
+
             self.utils.report.attachment(None, archived_path, "DEBUG")
             self.utils.report.title = self.title + ": " + epub.identifier() + " ble konvertert 👍😄" + epubTitle
-            add_task("modified",epub.identifier(), self.options)
+            dt_m = datetime.datetime.fromtimestamp(date_modified)
+            archived_time = dt_m.isoformat()
+            self.options["date_modified"] = archived_time
+            self.options["guidelines"] = meta_name_content
+            add_task(self.uid,epub.identifier(), self.options)
+            message = self.title + ": " + epub.identifier() + " ble konvertert 👍😄" + epubTitle
+            ApiWorker.notify(epub.identifier(), "success", message)
             return True
 
 
