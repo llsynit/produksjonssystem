@@ -39,4 +39,4 @@ epubcheck-5.0.0
 */xslt/.DS_Store
 
 /xslt*/**/.DS_Store
-
+xslt*/**/.DS_Store
