@@ -34,3 +34,9 @@ venv/
 
 epubcheck-5.0.0
 
+*.DS_Store
+.DS_Store
+*/xslt/.DS_Store
+
+/xslt*/**/.DS_Store
+

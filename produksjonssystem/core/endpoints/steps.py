@@ -170,7 +170,8 @@ def progress_report():
         print(pipeline)
         print(pipeline.uid)
         uids.append(pipeline.uid)
-    progress_report_data = progress_report(uids)
+    #progress_report_data = progress_report(uids)
+    progress_report_data = progress_report_updated(uids)
     return jsonify(progress_report_data), 200
 
 def get_book_count(dir, parentdirs=None):
@@ -259,3 +260,93 @@ def progress_report(uids):
             report_data.append(pipeline_data)
 
         return report_data
+
+def progress_report_updated(uids):
+    """
+    Generate pipeline node and edge data for rendering with React Flow.
+    """
+    nodes = []
+    edges = []
+
+    for uid in uids:
+        pipeline = next((p for p in Pipeline.pipelines if p.uid == uid), None)
+        if not pipeline:
+            continue
+
+        group_pipeline = pipeline.get_current_group_pipeline()
+        pipeline_id = group_pipeline.get_group_id()
+        title = group_pipeline.get_group_title()
+        queue = group_pipeline.get_queue() or []
+
+        queue_counts = {
+            "created": len([b for b in queue if Pipeline.get_main_event(b) == "created"]),
+            "modified": len([b for b in queue if Pipeline.get_main_event(b) == "modified"]),
+            "deleted": len([b for b in queue if Pipeline.get_main_event(b) == "deleted"]),
+            "triggered": len([b for b in queue if Pipeline.get_main_event(b) == "triggered"]),
+            "autotriggered": len([b for b in queue if Pipeline.get_main_event(b) == "autotriggered"]),
+        }
+
+        state = group_pipeline.get_state()
+        status = group_pipeline.get_status()
+        progress = group_pipeline.get_progress()
+
+        relpath_in = os.path.basename(os.path.dirname(pipeline.dir_in)) if pipeline.dir_in else None
+        relpath_out = os.path.basename(os.path.dirname(pipeline.dir_out)) if pipeline.dir_out else None
+
+        input_id = f"input_{uid}"
+        output_id = f"output_{uid}"
+
+        # Add input folder node
+        if pipeline.dir_in:
+            nodes.append({
+                "id": input_id,
+                "type": "folder",
+                "data": {
+                    "label": relpath_in,
+                    "count": get_book_count(pipeline.dir_in)
+                },
+                "position": {"x": 0, "y": len(nodes) * 100}
+            })
+
+        # Add output folder node
+        if pipeline.dir_out:
+            nodes.append({
+                "id": output_id,
+                "type": "folder",
+                "data": {
+                    "label": relpath_out,
+                    "count": get_book_count(pipeline.dir_out, pipeline.parentdirs)
+                },
+                "position": {"x": 400, "y": len(nodes) * 100}
+            })
+
+        # Add pipeline node
+        nodes.append({
+            "id": pipeline_id,
+            "type": "pipeline",
+            "data": {
+                "title": title,
+                "state": state,
+                "status": status,
+                "progress": progress,
+                "queue": queue_counts
+            },
+            "position": {"x": 200, "y": len(nodes) * 100}
+        })
+
+        # Add edges
+        if pipeline.dir_in:
+            edges.append({
+                "id": f"edge_{input_id}_{pipeline_id}",
+                "source": input_id,
+                "target": pipeline_id
+            })
+
+        if pipeline.dir_out:
+            edges.append({
+                "id": f"edge_{pipeline_id}_{output_id}",
+                "source": pipeline_id,
+                "target": output_id
+            })
+
+    return {"nodes": nodes, "edges": edges}

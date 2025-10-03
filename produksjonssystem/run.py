@@ -26,7 +26,7 @@ import core.endpoints.steps  # noqa
 import core.server  # noqa
 import core.api_rabbitmq_receiver  # noqa
 import core.api_queue_worker  # noqa
-#import core.api_worker  # noqa
+# import core.api_worker  # noqa
 
 from core.config import Config  # noqa
 from core.directory import Directory  # noqa
@@ -40,7 +40,7 @@ from core.utils.metadata import Metadata  # noqa
 # from check_pef import CheckPef  # noqa
 # from incoming_NLBPUB import (NLBPUB_incoming_validator,
 #                              NLBPUB_incoming_warning, NLBPUB_validator)  # noqa
-from daisy202_to_distribution import Daisy202ToDistribution # noqa
+from daisy202_to_distribution import Daisy202ToDistribution  # noqa
 from incoming_nordic import IncomingNordic  # noqa
 from insert_metadata import (InsertMetadataBraille, InsertMetadataDaisy202,
                              InsertMetadataXhtml)  # noqa
@@ -94,12 +94,14 @@ class Produksjonssystem():
         fmt = "%(asctime)s %(levelname)-8s [%(threadName)-30s] %(message)s"
         formatter = logging.Formatter(fmt=fmt)
         handler.setFormatter(formatter)
-        handler.setLevel(level=logging.DEBUG if os.environ.get("DEBUG", "1") == "1" else logging.INFO)
+        handler.setLevel(level=logging.DEBUG if os.environ.get(
+            "DEBUG", "1") == "1" else logging.INFO)
         logger.addHandler(handler)
         if verbose:
             consoleHandler = logging.StreamHandler(sys.stdout)
             consoleHandler.setFormatter(formatter)
-            consoleHandler.setLevel(level=logging.DEBUG if os.environ.get("DEBUG", "1") == "1" else logging.INFO)
+            consoleHandler.setLevel(level=logging.DEBUG if os.environ.get(
+                "DEBUG", "1") == "1" else logging.INFO)
             logger.addHandler(consoleHandler)
 
         # add airbrake.io handler
@@ -110,11 +112,13 @@ class Produksjonssystem():
         }
         if self.airbrake_config["project_id"] and self.airbrake_config["project_key"]:
             notifier = pybrake.Notifier(**self.airbrake_config)
-            airbrake_handler = pybrake.LoggingHandler(notifier=notifier, level=logging.ERROR)
+            airbrake_handler = pybrake.LoggingHandler(
+                notifier=notifier, level=logging.ERROR)
             logging.getLogger().addHandler(airbrake_handler)
         else:
             self.airbrake_config = None
-            logging.warning("Airbrake.io not configured (missing AIRBRAKE_PROJECT_ID and/or AIRBRAKE_PROJECT_KEY)")
+            logging.warning(
+                "Airbrake.io not configured (missing AIRBRAKE_PROJECT_ID and/or AIRBRAKE_PROJECT_KEY)")
 
         # Set environment variables (mainly useful when testing)
         if environment:
@@ -124,7 +128,8 @@ class Produksjonssystem():
             self.environment = environment
         else:
             self.environment = {}
-        Pipeline.environment = self.environment  # Make environment available from pipelines
+        # Make environment available from pipelines
+        Pipeline.environment = self.environment
         # Check that archive dirs is defined
         assert os.environ.get("BOOK_ARCHIVE_DIRS"), (
             "The book archives must be defined as a space separated list in the environment variable BOOK_ARCHIVE_DIRS (as name=path pairs)")
@@ -139,8 +144,10 @@ class Produksjonssystem():
         # write "self." all the time during initialization.
         book_archive_dirs = self.book_archive_dirs
 
-        Config.set("test", os.environ.get("TEST", "false").lower() in ["true", "1"])
-        Config.set("email.allowed_email_addresses_in_test", os.environ.get("ALLOWED_EMAIL_ADDRESSES_IN_TEST", "").split(","))
+        Config.set("test", os.environ.get(
+            "TEST", "false").lower() in ["true", "1"])
+        Config.set("email.allowed_email_addresses_in_test", os.environ.get(
+            "ALLOWED_EMAIL_ADDRESSES_IN_TEST", "").split(","))
 
         # Configure email
         Config.set("email.sender.name", "NLBs Produksjonssystem")
@@ -149,7 +156,8 @@ class Produksjonssystem():
         Config.set("email.smtp.port", os.environ.get("MAIL_PORT", None))
         Config.set("email.smtp.user", os.environ.get("MAIL_USERNAME", None))
         Config.set("email.smtp.pass", os.environ.get("MAIL_PASSWORD", None))
-        Config.set("email.formatklar.address", os.environ.get("MAIL_FORMATKLAR"))
+        Config.set("email.formatklar.address",
+                   os.environ.get("MAIL_FORMATKLAR"))
         Config.set("email.filesize.address", os.environ.get("MAIL_FILESIZE"))
         Config.set("email.abklar.address", os.environ.get("MAIL_ABKLAR"))
 
@@ -157,10 +165,14 @@ class Produksjonssystem():
         Config.set("nlb_api_url", os.environ.get("NLB_API_URL"))
 
         # Special directories
-        Config.set("master_dir", os.path.join(book_archive_dirs["master"], "master/EPUB"))
-        Config.set("newsfeed_dir", os.path.join(book_archive_dirs["master"], "innkommende/schibsted-aviser/avisfeeder"))
-        Config.set("reports_dir", os.getenv("REPORTS_DIR", os.path.join(book_archive_dirs["master"], "rapporter")))
-        Config.set("metadata_dir", os.getenv("METADATA_DIR", os.path.join(book_archive_dirs["master"], "metadata")))
+        Config.set("master_dir", os.path.join(
+            book_archive_dirs["master"], "master/EPUB"))
+        Config.set("newsfeed_dir", os.path.join(
+            book_archive_dirs["master"], "innkommende/schibsted-aviser/avisfeeder"))
+        Config.set("reports_dir", os.getenv("REPORTS_DIR",
+                   os.path.join(book_archive_dirs["master"], "rapporter")))
+        Config.set("metadata_dir", os.getenv("METADATA_DIR",
+                   os.path.join(book_archive_dirs["master"], "metadata")))
         Config.set("nlbsamba.dir", os.environ.get("NLBSAMBA_DIR"))
 
         # Define directories (using OrderedDicts to preserve order when plotting)
@@ -173,10 +185,13 @@ class Produksjonssystem():
         })
         # self.dirs_ranked[-1]["dirs"]["incoming_NLBPUB"] = os.path.join(book_archive_dirs["master"], "innkommende/NLBPUB")
         # self.dirs_ranked[-1]["dirs"]["nlbpub_manuell"] = os.path.join(book_archive_dirs["master"], "mottakskontroll/NLBPUB")
-        self.dirs_ranked[-1]["dirs"]["incoming"] = os.path.join(book_archive_dirs["master"], "innkommende/nordisk")
+        self.dirs_ranked[-1]["dirs"]["incoming"] = os.path.join(
+            book_archive_dirs["master"], "innkommende/nordisk")
         # self.dirs_ranked[-1]["dirs"]["incoming-for-approval"] = os.path.join(book_archive_dirs["master"], "innkommende/nordisk-manuell-mottakskontroll")
-        self.dirs_ranked[-1]["dirs"]["old_dtbook"] = os.path.join(book_archive_dirs["master"], "grunnlagsfil/DTBook")
-        self.dirs_ranked[-1]["dirs"]["incoming-statped-nlbpub"] = os.path.join(book_archive_dirs["master"], "innkommende/statped-nlbpub")
+        self.dirs_ranked[-1]["dirs"]["old_dtbook"] = os.path.join(
+            book_archive_dirs["master"], "grunnlagsfil/DTBook")
+        self.dirs_ranked[-1]["dirs"]["incoming-statped-nlbpub"] = os.path.join(
+            book_archive_dirs["master"], "innkommende/statped-nlbpub")
 
         self.dirs_ranked.append({
             "id": "source-in",
@@ -198,53 +213,73 @@ class Produksjonssystem():
         self.dirs_ranked[-1]["dirs"]["master"] = Config.get("master_dir")
         self.dirs_ranked[-1]["dirs"]["metadata"] = Config.get("metadata_dir")
         # self.dirs_ranked[-1]["dirs"]["grunnlag"] = os.path.join(book_archive_dirs["master"], "grunnlagsfil/NLBPUB")
-        self.dirs_ranked[-1]["dirs"]["nlbpub"] = os.path.join(book_archive_dirs["master"], "master/NLBPUB")
-        self.dirs_ranked[-1]["dirs"]["epub_from_dtbook"] = os.path.join(book_archive_dirs["master"], "grunnlagsfil/EPUB-fra-DTBook")
+        self.dirs_ranked[-1]["dirs"]["nlbpub"] = os.path.join(
+            book_archive_dirs["master"], "master/NLBPUB")
+        self.dirs_ranked[-1]["dirs"]["epub_from_dtbook"] = os.path.join(
+            book_archive_dirs["master"], "grunnlagsfil/EPUB-fra-DTBook")
         self.dirs_ranked[-1]["dirs"]["news"] = Config.get("newsfeed_dir")
         self.dirs_ranked.append({
             "id": "version-control",
             "name": "Versjonskontroll",
             "dirs": OrderedDict()
         })
-        self.dirs_ranked[-1]["dirs"]["nlbpub-previous"] = os.path.join(book_archive_dirs["master"], "master/NLBPUB-tidligere")
+        self.dirs_ranked[-1]["dirs"]["nlbpub-previous"] = os.path.join(
+            book_archive_dirs["master"], "master/NLBPUB-tidligere")
 
         self.dirs_ranked.append({
-                "id": "publication-in",
-                "name": "Format-spesifikk metadata",
-                "dirs": OrderedDict()
+            "id": "publication-in",
+            "name": "Format-spesifikk metadata",
+            "dirs": OrderedDict()
         })
-        self.dirs_ranked[-1]["dirs"]["pub-in-braille"] = os.path.join(book_archive_dirs["master"], "utgave-inn/punktskrift")
-        self.dirs_ranked[-1]["dirs"]["pub-in-ebook"] = os.path.join(book_archive_dirs["master"], "utgave-inn/e-tekst")
-        self.dirs_ranked[-1]["dirs"]["pub-in-audio"] = os.path.join(book_archive_dirs["master"], "utgave-inn/lydbok")
+        self.dirs_ranked[-1]["dirs"]["pub-in-braille"] = os.path.join(
+            book_archive_dirs["master"], "utgave-inn/punktskrift")
+        self.dirs_ranked[-1]["dirs"]["pub-in-ebook"] = os.path.join(
+            book_archive_dirs["master"], "utgave-inn/e-tekst")
+        self.dirs_ranked[-1]["dirs"]["pub-in-audio"] = os.path.join(
+            book_archive_dirs["master"], "utgave-inn/lydbok")
 
         self.dirs_ranked.append({
             "id": "publication-ready",
             "name": "Klar for produksjon",
             "dirs": OrderedDict()
         })
-        self.dirs_ranked[-1]["dirs"]["pub-ready-braille"] = os.path.join(book_archive_dirs["master"], "utgave-klargjort/punktskrift")
-        self.dirs_ranked[-1]["dirs"]["pub-ready-ebook"] = os.path.join(book_archive_dirs["master"], "utgave-klargjort/e-bok")
-        self.dirs_ranked[-1]["dirs"]["pub-ready-docx"] = os.path.join(book_archive_dirs["master"], "utgave-klargjort/DOCX")
-        self.dirs_ranked[-1]["dirs"]["pub-ready-magazine"] = os.path.join(book_archive_dirs["master"], "utgave-klargjort/tidsskrifter")
-        self.dirs_ranked[-1]["dirs"]["epub_narration"] = os.path.join(book_archive_dirs["master"], "utgave-klargjort/EPUB-til-innlesing")
-        self.dirs_ranked[-1]["dirs"]["dtbook_tts"] = os.path.join(book_archive_dirs["master"], "utgave-klargjort/DTBook-til-talesyntese")
-        self.dirs_ranked[-1]["dirs"]["dtbook_news"] = os.path.join(book_archive_dirs["master"], "utgave-klargjort/DTBook-aviser-til-talesyntese")
+        self.dirs_ranked[-1]["dirs"]["pub-ready-braille"] = os.path.join(
+            book_archive_dirs["master"], "utgave-klargjort/punktskrift")
+        self.dirs_ranked[-1]["dirs"]["pub-ready-ebook"] = os.path.join(
+            book_archive_dirs["master"], "utgave-klargjort/e-bok")
+        self.dirs_ranked[-1]["dirs"]["pub-ready-docx"] = os.path.join(
+            book_archive_dirs["master"], "utgave-klargjort/DOCX")
+        self.dirs_ranked[-1]["dirs"]["pub-ready-magazine"] = os.path.join(
+            book_archive_dirs["master"], "utgave-klargjort/tidsskrifter")
+        self.dirs_ranked[-1]["dirs"]["epub_narration"] = os.path.join(
+            book_archive_dirs["master"], "utgave-klargjort/EPUB-til-innlesing")
+        self.dirs_ranked[-1]["dirs"]["dtbook_tts"] = os.path.join(
+            book_archive_dirs["master"], "utgave-klargjort/DTBook-til-talesyntese")
+        self.dirs_ranked[-1]["dirs"]["dtbook_news"] = os.path.join(
+            book_archive_dirs["master"], "utgave-klargjort/DTBook-aviser-til-talesyntese")
 
         self.dirs_ranked.append({
             "id": "publication-out",
             "name": "Ferdig produsert",
             "dirs": OrderedDict()
         })
-        self.dirs_ranked[-1]["dirs"]["pef"] = os.path.join(book_archive_dirs["master"], "utgave-ut/PEF")
-        self.dirs_ranked[-1]["dirs"]["pef-checked"] = os.path.join(book_archive_dirs["master"], "utgave-ut/PEF-kontrollert")
-        self.dirs_ranked[-1]["dirs"]["html"] = os.path.join(book_archive_dirs["master"], "utgave-ut/HTML")
-        self.dirs_ranked[-1]["dirs"]["epub-ebook"] = os.path.join(book_archive_dirs["share"], "daisy202/EPUB")
-        self.dirs_ranked[-1]["dirs"]["docx"] = os.path.join(book_archive_dirs["master"], "utgave-ut/DOCX")
-        self.dirs_ranked[-1]["dirs"]["trd_docx"] = os.path.join(book_archive_dirs["master"], "utgave-ut/Trd_DOCX")
-        self.dirs_ranked[-1]["dirs"]["daisy202"] = os.path.join(book_archive_dirs["share"], "daisy202")
-        self.dirs_ranked[-1]["dirs"]["abstracts"] = os.path.join(book_archive_dirs["distribution"], "www/abstracts")
-        self.dirs_ranked[-1]["dirs"]["daisy202-ready"] = os.path.join(book_archive_dirs["master"], "utgave-klargjort/lydbok-til-validering")
-        self.dirs_ranked[-1]["dirs"]["daisy202-dist"] = os.path.join(book_archive_dirs["share"], "daisy202")
+        self.dirs_ranked[-1]["dirs"]["pef"] = os.path.join(
+            book_archive_dirs["master"], "utgave-ut/PEF")
+        self.dirs_ranked[-1]["dirs"]["pef-checked"] = os.path.join(
+            book_archive_dirs["master"], "utgave-ut/PEF-kontrollert")
+        self.dirs_ranked[-1]["dirs"]["html"] = os.path.join(
+            book_archive_dirs["master"], "utgave-ut/HTML")
+        # self.dirs_ranked[-1]["dirs"]["epub-ebook"] = os.path.join(book_archive_dirs["share"], "daisy202/EPUB")
+        self.dirs_ranked[-1]["dirs"]["docx"] = os.path.join(
+            book_archive_dirs["master"], "utgave-ut/DOCX")
+        self.dirs_ranked[-1]["dirs"]["trd_docx"] = os.path.join(
+            book_archive_dirs["master"], "utgave-ut/Trd_DOCX")
+        # self.dirs_ranked[-1]["dirs"]["daisy202"] = os.path.join(book_archive_dirs["share"], "daisy202")
+        self.dirs_ranked[-1]["dirs"]["abstracts"] = os.path.join(
+            book_archive_dirs["distribution"], "www/abstracts")
+        self.dirs_ranked[-1]["dirs"]["daisy202-ready"] = os.path.join(
+            book_archive_dirs["master"], "utgave-klargjort/lydbok-til-validering")
+        # self.dirs_ranked[-1]["dirs"]["daisy202-dist"] = os.path.join(book_archive_dirs["share"], "daisy202")
 
         # Make a key/value version of dirs_ranked for convenience
         self.dirs = {
@@ -266,41 +301,41 @@ class Produksjonssystem():
             [IncomingNordic(retry_all=True,
                             during_working_hours=True,
                             during_night_and_weekend=True),       "incoming",            "master"],
-          [NordicToNlbpub(retry_missing=True,
+            [NordicToNlbpub(retry_missing=True,
                             overwrite=False,
                             during_working_hours=True,
                             during_night_and_weekend=True),   "master",              "nlbpub"],
 
 
-        [InsertMetadataXhtml(retry_missing=True,
+            [InsertMetadataXhtml(retry_missing=True,
                                  retry_old=True,
                                  retry_complete=True,
                                  check_identifiers=True,
                                  during_night_and_weekend=True,
                                  during_working_hours=True),    "nlbpub",              "pub-in-ebook"],
-        [PrepareForDocx(retry_missing=True,
+            [PrepareForDocx(retry_missing=True,
                             check_identifiers=True,
                             during_working_hours=True),         "pub-in-ebook",        "pub-ready-docx"],
-        [NLBpubToDocx(retry_missing=True,
+            [NLBpubToDocx(retry_missing=True,
                           check_identifiers=True,
                           during_working_hours=True),           "pub-ready-docx",      "docx"],
 
-         [InsertMetadataDaisy202(retry_missing=True,
+            [InsertMetadataDaisy202(retry_missing=True,
                                     check_identifiers=True,
                                     during_working_hours=True), "nlbpub",              "pub-in-audio"],
-        [InsertMetadataBraille(retry_missing=True,
+            [InsertMetadataBraille(retry_missing=True,
                                    check_identifiers=True,
                                    during_working_hours=True),  "nlbpub",              "pub-in-braille"],
-        [PrepareForBraille(retry_missing=True,
+            [PrepareForBraille(retry_missing=True,
                                check_identifiers=True,
                                during_working_hours=True),      "pub-in-braille",      "pub-ready-braille"],
-        [NlbpubToPef(retry_missing=True,
+            [NlbpubToPef(retry_missing=True,
                          check_identifiers=True,
                          during_working_hours=True),            "pub-ready-braille",   "pef"],
 
 
         ]
-        #self.pipelines = [
+        # self.pipelines = [
 
         """ [IncomingNordic(retry_all=True,
                             during_working_hours=True,
@@ -330,7 +365,7 @@ class Produksjonssystem():
                                     during_working_hours=True), "nlbpub",              "pub-in-audio"],
 
         """
-        #]
+        # ]
 
         # Define pipelines and input/output/report dirs
         """self.pipelines = [
@@ -453,37 +488,37 @@ class Produksjonssystem():
             "name": "Innlesing",
             "steps": ["insert-metadata-daisy202", "nlbpub-to-narration-epub", "dummy_innlesingmedhindenburg", "create-abstracts", "daisy202-to-distribution"],
         },
-        #{
+        # {
         #    "id": "tts",
         #    "name": "Talesyntese",
         #    "steps": ["insert-metadata-daisy202", "nlbpub-to-tts-dtbook", "dummy_talesynteseipipeline1", "create-abstracts", "daisy202-to-distribution"],
         #    "filters": {
         #        "libraries": ["NLB"],
         #    },
-        #},
+        # },
 
-        #{
+        # {
         #    "id": "schibsted",
         #    "name": "Schibsted-aviser",
         #    "steps": ["newspaper-schibsted", "dummy_talesynteseipipeline1foraviser", "create-abstracts", "daisy202-to-distribution"],
         #    "filters": {
         #        "libraries": ["NLB"],
         #    },
-        #},
+        # },
         {
             "id": "braille",
             "name": "Punktskrift",
             "steps": ["insert-metadata-braille", "prepare-for-braille", "nlbpub-to-pef"],
         },
 
-        #{
+        # {
         #    "id": "braille-newsletter",
         #    "name": "Nyhetsbrev i punktskrift",
         #    "steps": ["newsletter-to-braille", "nlbpub-to-pef"],
         #    "filters": {
         #        "libraries": ["NLB"],
         #    },
-        #},
+        # },
 
         {
             "id": "e-book",
@@ -529,7 +564,8 @@ class Produksjonssystem():
             self.info("Starter produksjonssystemet...")
             self._run()
         except Exception as e:
-            self.info("En feil oppstod i produksjonssystemet: {}".format(str(e) if str(e) else "(ukjent)"))
+            self.info("En feil oppstod i produksjonssystemet: {}".format(
+                str(e) if str(e) else "(ukjent)"))
             logging.exception("En feil oppstod i produksjonssystemet")
         finally:
             self.info("Produksjonssystemet er stoppet")
@@ -557,14 +593,19 @@ class Produksjonssystem():
                     "Directory \"" + d + "\" must be part of one of the book archives: " + self.dirs[d])
             assert not [a for a in self.book_archive_dirs if os.path.normpath(self.dirs[d]) == os.path.normpath(self.book_archive_dirs[a])], (
                 "The directory \"" + d + "\" must not be equal to any of the book archive dirs: " + self.dirs[d])
-            assert len([x for x in self.dirs if self.dirs[x] == self.dirs[d]]), "The directory \"" + d + "\" is defined multiple times: " + self.dirs[d]
+            assert len([x for x in self.dirs if self.dirs[x] == self.dirs[d]]
+                       ), "The directory \"" + d + "\" is defined multiple times: " + self.dirs[d]
 
         # Make sure that the pipelines are defined properly
         for pipeline in self.pipelines:
-            assert len(pipeline) == 3, "Pipeline declarations have three arguments (not " + len(pipeline) + ")"
-            assert isinstance(pipeline[0], Pipeline), "The first argument of a pipeline declaration must be a pipeline instance"
-            assert pipeline[1] is None or isinstance(pipeline[1], str), "The second argument of a pipeline declaration must be a string or None"
-            assert pipeline[2] is None or isinstance(pipeline[2], str), "The third argument of a pipeline declaration must be a string or None"
+            assert len(
+                pipeline) == 3, "Pipeline declarations have three arguments (not " + len(pipeline) + ")"
+            assert isinstance(
+                pipeline[0], Pipeline), "The first argument of a pipeline declaration must be a pipeline instance"
+            assert pipeline[1] is None or isinstance(
+                pipeline[1], str), "The second argument of a pipeline declaration must be a string or None"
+            assert pipeline[2] is None or isinstance(
+                pipeline[2], str), "The third argument of a pipeline declaration must be a string or None"
             assert pipeline[1] is None or pipeline[1] in self.dirs, (
                 "The second argument of a pipeline declaration (\"" + str(pipeline[1]) + "\") must be None or refer to a key in \"dirs\"")
             assert pipeline[2] is None or pipeline[2] in self.dirs, (
@@ -572,9 +613,11 @@ class Produksjonssystem():
 
         # Some useful output to stdout before starting everything else
         print("")
-        print("Dashboard: file://" + os.path.join(Config.get("reports_dir"), "dashboard.html"))
+        print("Dashboard: file://" +
+              os.path.join(Config.get("reports_dir"), "dashboard.html"))
         for d in self.book_archive_dirs:
-            print("Book archive \"{}\": file://{}".format(d, self.book_archive_dirs[d]))
+            print("Book archive \"{}\": file://{}".format(d,
+                  self.book_archive_dirs[d]))
         print("")
 
         # Make directories
@@ -588,7 +631,8 @@ class Produksjonssystem():
             try:
                 self.emailDoc = yaml.load(f, Loader=yaml.FullLoader)
             except Exception as e:
-                self.info("En feil oppstod under lasting av konfigurasjonsfilen. Sjekk syntaksen til produksjonssystem.yaml")
+                self.info(
+                    "En feil oppstod under lasting av konfigurasjonsfilen. Sjekk syntaksen til produksjonssystem.yaml")
                 traceback.print_exc(e)
 
         # Make pipelines available from static methods in the Pipeline class
@@ -600,47 +644,50 @@ class Produksjonssystem():
 
         self.shouldRun(True)
 
-        self.server = core.server.start(hot_reload=False, airbrake_config=self.airbrake_config, shutdown_function=self.stop)
-        #added 05.03.2024
-        #Using rabbitmq to send messages to receive messages(parameters to various production pipelines) from the dashboard
+        self.server = core.server.start(
+            hot_reload=False, airbrake_config=self.airbrake_config, shutdown_function=self.stop)
+        # added 05.03.2024
+        # Using rabbitmq to send messages to receive messages(parameters to various production pipelines) from the dashboard
         self.rabbitmq_receiver = core.api_rabbitmq_receiver.start()
-        #self.rabbitmq_receiver = core.rabbitmq_receiver.join()
+        # self.rabbitmq_receiver = core.rabbitmq_receiver.join()
 
+        # self._configThread = Thread(target=self._rabbitmq_thread, name="rabbitmq")
+        # self._configThread.setDaemon(True) #deprecated
+        # self._configThread.daemon = True
+        # self._configThread.start()
 
-
-        #self._configThread = Thread(target=self._rabbitmq_thread, name="rabbitmq")
-        #self._configThread.setDaemon(True) #deprecated
-        #self._configThread.daemon = True
-        #self._configThread.start()
-
-        #api_threads
+        # api_threads
 
         self.api_task_queue_processor = core.api_queue_worker.start()
-        #self.api_task_queue_processor = core.api_task_queue_processor.join()
-
+        # self.api_task_queue_processor = core.api_task_queue_processor.join()
 
         self._configThread = Thread(target=self._config_thread, name="config")
-        #self._configThread.setDaemon(True) #deprecated
+        # self._configThread.setDaemon(True) #deprecated
         self._configThread.daemon = True
         self._configThread.start()
 
-        Config.set("dailyReports.enabled", os.environ.get("DAILY_REPORTS_ENABLED", "true").lower() in ["true", "1"])
+        Config.set("dailyReports.enabled", os.environ.get(
+            "DAILY_REPORTS_ENABLED", "true").lower() in ["true", "1"])
         if Config.get("dailyReports.enabled"):
-            self._dailyReportThread = Thread(target=self._daily_report_thread, name="daily report")
-            #self._dailyReportThread.setDaemon(True)
-            self._dailyReportThread.daemon=True
+            self._dailyReportThread = Thread(
+                target=self._daily_report_thread, name="daily report")
+            # self._dailyReportThread.setDaemon(True)
+            self._dailyReportThread.daemon = True
             self._dailyReportThread.start()
 
-        self._systemStatusThread = Thread(target=self._system_status_thread, name="system status")
-        #self._systemStatusThread.setDaemon(True)
-        self._systemStatusThread.daemon=True
+        self._systemStatusThread = Thread(
+            target=self._system_status_thread, name="system status")
+        # self._systemStatusThread.setDaemon(True)
+        self._systemStatusThread.daemon = True
         self._systemStatusThread.start()
 
-        Config.set("signatures.enabled", os.environ.get("SIGNATURES_ENABLED", "true").lower() in ["true", "1"])
+        Config.set("signatures.enabled", os.environ.get(
+            "SIGNATURES_ENABLED", "true").lower() in ["true", "1"])
         if Config.get("signatures.enabled"):
-            self._signaturesRefreshThread = Thread(target=self._signatures_refresh_thread, name="signatures refresh")
-            #self._signaturesRefreshThread.setDaemon(True)
-            self._signaturesRefreshThread.daemon=True
+            self._signaturesRefreshThread = Thread(
+                target=self._signatures_refresh_thread, name="signatures refresh")
+            # self._signaturesRefreshThread.setDaemon(True)
+            self._signaturesRefreshThread.daemon = True
             self._signaturesRefreshThread.start()
 
         for pipeline in self.pipelines:
@@ -661,23 +708,27 @@ class Produksjonssystem():
                 self.dirs_inactivity_timeouts[pipeline[1]]
             thread = Thread(target=pipeline[0].run, name=pipeline[0].uid,
                             args=(inactivity_timeout,  # inactivity_timeout
-                                  self.dirs[pipeline[1]] if pipeline[1] else None,  # dir_in
-                                  self.dirs[pipeline[2]] if pipeline[2] else None,  # dir_out
+                                  # dir_in
+                                  self.dirs[pipeline[1]
+                                            ] if pipeline[1] else None,
+                                  # dir_out
+                                  self.dirs[pipeline[2]
+                                            ] if pipeline[2] else None,
                                   self.dirs["reports"],  # dir_reports
                                   email_settings,  # email_settings
                                   self.book_archive_dirs,  # dir_base
                                   pipeline_config  # config
                                   ))
 
-            #thread.setDaemon(True)
-            thread.daemon=True
+            # thread.setDaemon(True)
+            thread.daemon = True
             thread.start()
             threads.append(thread)
 
         plotter = Plotter(self.pipelines, report_dir=self.dirs["reports"])
         graph_thread = Thread(target=plotter.run, name="graph")
-        #graph_thread.setDaemon(True)
-        graph_thread.daemon=True
+        # graph_thread.setDaemon(True)
+        graph_thread.daemon = True
         graph_thread.start()
 
         self.info("Produksjonssystemet er startet")
@@ -687,7 +738,8 @@ class Produksjonssystem():
         system_process.cpu_percent()  # first value returned is 0.0, which we ignore
         try:
             running = True
-            time.sleep(5)  # wait a few seconds before starting to monitor the system (extra precaution to avoid race conditions during startup)
+            # wait a few seconds before starting to monitor the system (extra precaution to avoid race conditions during startup)
+            time.sleep(5)
             while running:
                 time.sleep(1)
 
@@ -712,13 +764,15 @@ class Produksjonssystem():
                 else:
                     for thread in threads:
                         if not thread.is_alive():
-                            self.info("thread is not running, will restart system: {} is not healty, will restart system...".format(thread))
+                            self.info(
+                                "thread is not running, will restart system: {} is not healty, will restart system...".format(thread))
                             running = False
                             break
 
                     for pipeline in self.pipelines:
                         if not pipeline[0].is_healthy():
-                            self.info("pipeline is not healthy, will restart system: {}".format(pipeline[0].title))
+                            self.info("pipeline is not healthy, will restart system: {}".format(
+                                pipeline[0].title))
                             running = False
 
                 if time.time() - last_thread_usage_log > 600:
@@ -726,7 +780,8 @@ class Produksjonssystem():
                     with system_process.oneshot():
                         self.info("Total memory usage: {:.1f} % ({:.3} MB)".format(system_process.memory_percent(memtype='uss'),
                                                                                    system_process.memory_full_info().uss / 1000000))
-                        self.info("Total CPU usage: {:.1f} % ({} cores)".format(system_process.cpu_percent(), psutil.cpu_count()))
+                        self.info("Total CPU usage: {:.1f} % ({} cores)".format(
+                            system_process.cpu_percent(), psutil.cpu_count()))
                         # TODO: find a way to log thread cpu usage
 
         except KeyboardInterrupt:
@@ -750,11 +805,13 @@ class Produksjonssystem():
             for thread in threads:
                 if thread and thread != threading.current_thread() and thread.is_alive():
                     if time.time() - join_start_time > 60 * 60:
-                        self.info("Thread is still running (we've waited too long, let's ignore it): {}".format(thread.name))
+                        self.info("Thread is still running (we've waited too long, let's ignore it): {}".format(
+                            thread.name))
                         thread.join(timeout=5)
                     else:
                         is_alive = True
-                        self.info("Thread is still running: {}".format(thread.name))
+                        self.info(
+                            "Thread is still running: {}".format(thread.name))
                         thread.join(timeout=5)
             for pipeline in self.pipelines:
                 if pipeline[0].running:
@@ -762,7 +819,8 @@ class Produksjonssystem():
                         pipeline[0].title,
                         " ({} / {})".format(pipeline[0].book["name"], pipeline[0].get_progress()) if pipeline[0].book else ""))
                 if pipeline[0].shouldRun:
-                    self.info("{} har startet igjen, sender nytt signal om at den skal stoppe...".format(pipeline[0].uid))
+                    self.info("{} har startet igjen, sender nytt signal om at den skal stoppe...".format(
+                        pipeline[0].uid))
                     pipeline[0].stop()
 
         self.info("Venter på at plotteren skal stoppe...")
@@ -840,7 +898,8 @@ class Produksjonssystem():
             last_update = time.time()
             yesterday = datetime.datetime.now() - datetime.timedelta(1)
             yesterday = str(yesterday.strftime("%Y-%m-%d"))
-            daily_dir = os.path.join(self.dirs["reports"], "logs", "dagsrapporter", yesterday)
+            daily_dir = os.path.join(
+                self.dirs["reports"], "logs", "dagsrapporter", yesterday)
             if not os.path.isdir(daily_dir):
                 continue
             for pipeline in self.pipelines:
@@ -857,7 +916,8 @@ class Produksjonssystem():
                     number_produced = 0
                     number_failed = 0
                     file = os.path.join(daily_dir, pipeline[0].uid)
-                    message = "## Produsert i pipeline: " + pipeline[0].title + ": " + yesterday + "\n"
+                    message = "## Produsert i pipeline: " + \
+                        pipeline[0].title + ": " + yesterday + "\n"
                     content = "\n## Bøker som har gått gjennom:"
                     report_content = ""
                     dirs = []
@@ -870,7 +930,8 @@ class Produksjonssystem():
                     if (os.path.isfile(file + "-SUCCESS.txt")):
                         with open(file + "-SUCCESS.txt", "r") as report_file_success:
                             report_content = report_file_success.readlines()
-                            content = content + self.format_email_report(report_content, dirs, dir_log, logfile, self.book_archive_dirs["master"])
+                            content = content + self.format_email_report(
+                                report_content, dirs, dir_log, logfile, self.book_archive_dirs["master"])
                             for line in report_content:
                                 if pipeline[0].title in line and line.startswith("["):
                                     number_produced += 1
@@ -881,19 +942,23 @@ class Produksjonssystem():
                     if (os.path.isfile(file + "-FAIL.txt")):
                         with open(file + "-FAIL.txt", "r") as report_file_fail:
                             report_content = report_file_fail.readlines()
-                            content = content + self.format_email_report(report_content, dirs, dir_log, logfile, self.book_archive_dirs["master"])
+                            content = content + self.format_email_report(
+                                report_content, dirs, dir_log, logfile, self.book_archive_dirs["master"])
                             for line in report_content:
                                 if pipeline[0].title in line and line.startswith("["):
                                     number_failed += 1
                     else:
                         content = content + "\nIngen feilet\n"
-                    message = message + "\n## Totalt ble {} produsert og {} feilet\n".format(number_produced, number_failed)
+                    message = message + \
+                        "\n## Totalt ble {} produsert og {} feilet\n".format(
+                            number_produced, number_failed)
                     message = message + content
                     pipeline[0].daily_report(message)
                 except Exception:
-                    self.info("En feil oppstod under sending av dagsrapporten for " + pipeline[0].title)
+                    self.info(
+                        "En feil oppstod under sending av dagsrapporten for " + pipeline[0].title)
                     self.info(traceback.format_exc())
-    #def _rabbitmq_thread(self):
+    # def _rabbitmq_thread(self):
         # RabbitMQ receiver
     #    while self.shouldRun():
     #        time.sleep(5)
@@ -922,7 +987,8 @@ class Produksjonssystem():
 
                     try:
                         for tempkey in tempEmailDoc:
-                            changes = self.find_diff(tempEmailDoc, self.emailDoc, tempkey)
+                            changes = self.find_diff(
+                                tempEmailDoc, self.emailDoc, tempkey)
                             if not changes == "":
                                 self.info(changes)
                     except Exception:
@@ -953,7 +1019,8 @@ class Produksjonssystem():
                         pipeline[0].config = pipeline_config
 
             except Exception:
-                self.info("En feil oppstod under lasting av konfigurasjonsfil. Sjekk syntaksen til" + fileName)
+                self.info(
+                    "En feil oppstod under lasting av konfigurasjonsfil. Sjekk syntaksen til" + fileName)
                 self.info(traceback.format_exc())
 
     def _signatures_refresh_thread(self):
@@ -961,18 +1028,21 @@ class Produksjonssystem():
         while self.shouldRun():
             time.sleep(5)
             if time.time() - Metadata.signatures_last_update > 3600*3:
-                Metadata.get_signatures_from_quickbase("0", refresh=True)  # discard the result, we just want to trigger an update
+                # discard the result, we just want to trigger an update
+                Metadata.get_signatures_from_quickbase("0", refresh=True)
 
     def find_diff(self, new_config, old_config, tempkey):
         for key_in_config in new_config[tempkey]:
             if isinstance(key_in_config, str):
 
                 if len(new_config[tempkey]) > len(old_config[tempkey]):
-                    delta = (yaml.dump(list(set(new_config[tempkey])-set(old_config[tempkey])), default_flow_style=False))
+                    delta = (yaml.dump(list(
+                        set(new_config[tempkey])-set(old_config[tempkey])), default_flow_style=False))
                     return ("Følgende mottakere ble lagt til i {} : \n{}" .format(tempkey, delta))
 
                 if len(new_config[tempkey]) < len(old_config[tempkey]):
-                    delta = (yaml.dump(list(set(old_config[tempkey])-set(new_config[tempkey])), default_flow_style=False))
+                    delta = (yaml.dump(list(
+                        set(old_config[tempkey])-set(new_config[tempkey])), default_flow_style=False))
                     return ("Følgende mottakere ble fjernet i {} : \n{}" .format(tempkey, delta))
 
             elif isinstance(key_in_config, dict):
@@ -984,11 +1054,13 @@ class Produksjonssystem():
                             tempset_old = set(old_config[tempkey][i][item])
 
                             if (len(tempset_new) > len(tempset_old)):
-                                delta = (yaml.dump(list(tempset_new-tempset_old), default_flow_style=False))
+                                delta = (
+                                    yaml.dump(list(tempset_new-tempset_old), default_flow_style=False))
                                 return ("Følgende mottakere ble lagt til i {}: {} : \n{}" .format(tempkey, item, delta))
 
                             elif (len(tempset_new) < len(tempset_old)):
-                                delta = (yaml.dump(list(tempset_old-tempset_new), default_flow_style=False))
+                                delta = (
+                                    yaml.dump(list(tempset_old-tempset_new), default_flow_style=False))
                                 return ("Følgende mottakere ble fjernet i {}: {} : \n{}" .format(tempkey, item, delta))
         return ""
 
@@ -1028,23 +1100,29 @@ class Produksjonssystem():
                     if dir_unc in line:
                         split_href = line.split(", ")
                         if len(split_href) == 3:
-                            smb_img_string = img_string + "=\" alt=\"{}\">".format(split_href[-1])
-                            message = message + "\n<ul>\n<li><a href=\"file:///{}\">{}</a> {}</li>\n</ul>".format(split_href[1], split_href[0], smb_img_string)
+                            smb_img_string = img_string + \
+                                "=\" alt=\"{}\">".format(split_href[-1])
+                            message = message + "\n<ul>\n<li><a href=\"file:///{}\">{}</a> {}</li>\n</ul>".format(
+                                split_href[1], split_href[0], smb_img_string)
                 if logfile in line:
                     if first_dir_log:
                         split_href = line.split(", ")
-                        smb_img_string = img_string + "=\" alt=\"{}\">".format(split_href[-1])
+                        smb_img_string = img_string + \
+                            "=\" alt=\"{}\">".format(split_href[-1])
                         if len(split_href) == 3:
                             short_path = "log.txt"
-                            message = message + "\n<ul>\n<li><a href=\"file:///{}\">{}</a> {}</li>\n</ul>".format(split_href[1], short_path, smb_img_string)
+                            message = message + "\n<ul>\n<li><a href=\"file:///{}\">{}</a> {}</li>\n</ul>".format(
+                                split_href[1], short_path, smb_img_string)
                             first_dir_log = False
             elif line != "":
                 first_dir_log = True
                 if "mail:" in line:
                     splitline = line.split("mail: ")
                     splitmail = splitline[-1].split(", ")
-                    smb_img_string = img_string + "=\" alt=\"{}\">".format(splitmail[-1])
-                    message = message + "\n<p><b>{}<a href=\"file:///{}\">Link</a> {}</b></p>".format(splitline[0], splitmail[0], smb_img_string)
+                    smb_img_string = img_string + \
+                        "=\" alt=\"{}\">".format(splitmail[-1])
+                    message = message + "\n<p><b>{}<a href=\"file:///{}\">Link</a> {}</b></p>".format(
+                        splitline[0], splitmail[0], smb_img_string)
                     continue
                 elif "[" in line:
                     message = message + "\n" + "<p><b>" + line + "</b></p>"
@@ -1052,7 +1130,7 @@ class Produksjonssystem():
 
 
 if __name__ == "__main__":
-    #threading.current_thread().setName("main thread") deprecated
+    # threading.current_thread().setName("main thread") deprecated
     threading.current_thread().name = "main thread"
     debug = "debug" in sys.argv or os.environ.get("DEBUG", "0") == "1"
     verbose = "verbose" in sys.argv or os.environ.get("VERBOSE", "0") == "1"

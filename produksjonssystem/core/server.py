@@ -21,6 +21,7 @@ from flask import redirect, request
 from flask.json import JSONEncoder
 from werkzeug.exceptions import HTTPException, InternalServerError
 
+
 from core.config import Config
 from core.utils.filesystem import Filesystem
 
@@ -71,6 +72,7 @@ def jsonify(obj):
 
 
 app = Flask(__name__)
+
 app.url_map.strict_slashes = False
 app.json_encoder = CustomJSONEncoder
 app.config['JSON_SORT_KEYS'] = False  # retain insertion order of keys (gives nicer JSON output)

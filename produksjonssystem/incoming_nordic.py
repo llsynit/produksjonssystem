@@ -73,15 +73,20 @@ class IncomingNordic(Pipeline):
             pass
         # sjekk at dette er en EPUB
         if not epub.isepub():
-            self.utils.report.title = self.title + ": " + self.book["name"] + " feilet 😭👎" + epubTitle
-            send_notification(epub.identifier(), "fail", self.title + ": " + self.book["name"] + " feilet 😭👎" + epubTitle)
+            self.utils.report.title = self.title + ": " + \
+                self.book["name"] + " feilet 😭👎" + epubTitle
+            send_notification(epub.identifier(), "fail", self.title +
+                              ": " + self.book["name"] + " feilet 😭👎" + epubTitle)
 
             return
 
         if not epub.identifier():
-            self.utils.report.error(self.book["name"] + ": Klarte ikke å bestemme boknummer basert på dc:identifier.")
-            self.utils.report.title = self.title + ": " + self.book["name"] + " feilet 😭👎" + epubTitle
-            send_notification(epub.identifier(), "fail", self.title + ": " + self.book["name"] + " feilet 😭👎" + epubTitle)
+            self.utils.report.error(
+                self.book["name"] + ": Klarte ikke å bestemme boknummer basert på dc:identifier.")
+            self.utils.report.title = self.title + ": " + \
+                self.book["name"] + " feilet 😭👎" + epubTitle
+            send_notification(epub.identifier(), "fail", self.title +
+                              ": " + self.book["name"] + " feilet 😭👎" + epubTitle)
             return
 
         # Function to process attributes based on XSLT logic
@@ -108,15 +113,16 @@ class IncomingNordic(Pipeline):
             for elem in root.iter():
                 for attr in attributes_to_modify:
                     if attr in elem.attrib:
-                        elem.attrib[attr] = process_attribute(elem.attrib[attr])
+                        elem.attrib[attr] = process_attribute(
+                            elem.attrib[attr])
 
                 # Special case: @data under <object>
                 if elem.tag == "object" and "data" in elem.attrib:
-                    elem.attrib["data"] = process_attribute(elem.attrib["data"])
+                    elem.attrib["data"] = process_attribute(
+                        elem.attrib["data"])
 
             # Write back changes
             tree.write(html_file, method="xml", encoding="UTF-8")
-
 
         self.utils.report.info("Lager en kopi av EPUBen med tomme bildefiler")
         temp_noimages_epubdir_obj = tempfile.TemporaryDirectory()
@@ -131,14 +137,17 @@ class IncomingNordic(Pipeline):
                 for file in files:
                     if file.endswith(".opf"):
                         opf_file = os.path.join(root, file)
-                        self.utils.report.info("Fjerner alle bildereferanser fra OPFen, og erstatter med en referanse til dummy.jpg...")
+                        self.utils.report.info(
+                            "Fjerner alle bildereferanser fra OPFen, og erstatter med en referanse til dummy.jpg...")
                         opf_xml_document = ElementTree.parse(opf_file)
                         opf_xml = opf_xml_document.getroot()
-                        image_items = opf_xml.xpath("//*[local-name()='item' and starts-with(@media-type, 'image/')]")
+                        image_items = opf_xml.xpath(
+                            "//*[local-name()='item' and starts-with(@media-type, 'image/')]")
                         replaced = False
                         for image_item in image_items:
                             if image_item.attrib["href"] not in opf_image_references:
-                                opf_image_references.append(image_item.attrib["href"])
+                                opf_image_references.append(
+                                    image_item.attrib["href"])
 
                             if image_item.get("href") == "images/cover.jpg":
                                 pass  # don't change the reference to cover.jpg
@@ -150,14 +159,16 @@ class IncomingNordic(Pipeline):
                             else:
                                 image_item.getparent().remove(image_item)
 
-                        opf_xml_document.write(opf_file, method='XML', xml_declaration=True, encoding='UTF-8', pretty_print=False)
+                        opf_xml_document.write(
+                            opf_file, method='XML', xml_declaration=True, encoding='UTF-8', pretty_print=False)
 
                     if file.endswith(".xhtml"):
                         html_file = os.path.join(root, file)
 
                         html_xml_document = ElementTree.parse(html_file)
                         html_xml = html_xml_document.getroot()
-                        image_references = html_xml.xpath("//@href | //@src | //@altimg")
+                        image_references = html_xml.xpath(
+                            "//@href | //@src | //@altimg")
                         for reference in image_references:
                             path = reference.split("#")[0]
                             if path.startswith("images/"):
@@ -165,8 +176,10 @@ class IncomingNordic(Pipeline):
                                     html_image_references[path] = []
                                 html_image_references[path].append(file)
 
-                        self.utils.report.info("Erstatter alle bildereferanser med images/dummy.jpg...")
-                        self.utils.report.info("Erstatter alle bildereferanser med images/dummy.jpg... i" + html_file)
+                        self.utils.report.info(
+                            "Erstatter alle bildereferanser med images/dummy.jpg...")
+                        self.utils.report.info(
+                            "Erstatter alle bildereferanser med images/dummy.jpg... i" + html_file)
                         self.utils.report.debug("dummy-jpg.xsl")
                         self.utils.report.debug("    source = " + html_file)
                         self.utils.report.debug("    target = " + temp_xml)
@@ -185,16 +198,19 @@ class IncomingNordic(Pipeline):
             for root, dirs, files in os.walk(os.path.join(temp_noimages_epubdir, "EPUB", "images")):
                 for file in files:
                     fullpath = os.path.join(root, file)
-                    relpath = os.path.relpath(fullpath, os.path.join(temp_noimages_epubdir, "EPUB"))
+                    relpath = os.path.relpath(
+                        fullpath, os.path.join(temp_noimages_epubdir, "EPUB"))
                     image_files_present.append(relpath)
             image_error = False
             for file in image_files_present:
                 if file not in opf_image_references:
-                    self.utils.report.error("Bildefilen er ikke deklarert i OPFen: " + file)
+                    self.utils.report.error(
+                        "Bildefilen er ikke deklarert i OPFen: " + file)
                     image_error = True
             for file in opf_image_references:
                 if file not in image_files_present:
-                    self.utils.report.error("Bildefilen er deklarert i OPFen, men finnes ikke: " + file)
+                    self.utils.report.error(
+                        "Bildefilen er deklarert i OPFen, men finnes ikke: " + file)
                     image_error = True
             for file in html_image_references:
                 if file not in opf_image_references:
@@ -202,8 +218,10 @@ class IncomingNordic(Pipeline):
                                             + " (deklarert i: " + ", ".join(html_image_references[file]) + ")")
                     image_error = True
             if image_error:
-                self.utils.report.title = self.title + ": " + epub.identifier() + " feilet 😭👎" + epubTitle
-                send_notification(epub.identifier(), "fail", self.title + ": " + self.book["name"] + " feilet 😭👎" + epubTitle)
+                self.utils.report.title = self.title + ": " + \
+                    epub.identifier() + " feilet 😭👎" + epubTitle
+                send_notification(epub.identifier(
+                ), "fail", self.title + ": " + self.book["name"] + " feilet 😭👎" + epubTitle)
                 return False
 
             for root, dirs, files in os.walk(os.path.join(temp_noimages_epubdir, "EPUB", "images")):
@@ -217,35 +235,42 @@ class IncomingNordic(Pipeline):
 
         temp_noimages_epub = Epub(self.utils.report, temp_noimages_epubdir)
 
-        self.utils.report.info("Validerer EPUB med epubcheck og nordiske retningslinjer...")
+        self.utils.report.info(
+            "Validerer EPUB med epubcheck og nordiske retningslinjer...")
         epub_noimages_file = temp_noimages_epub.asFile()
         with DaisyPipelineJob(self,
                               "nordic-epub3-validate",
-                              {"epub": os.path.basename(epub_noimages_file)},
+                              {"epub": os.path.basename(epub_noimages_file),
+                               "use-epubcheck": "false"},
                               priority="high",
                               pipeline_and_script_version=[
-                                ("1.14.3", "1.5.2-SNAPSHOT"), #added 08.04.24 validate with Nordic EPUB3/DTBook Migrator. The Nordic EPUB3 Validator script can validate according to both 2015-1 and 2020-1 rulesets. Which ruleset will be applied is determined by the value of the <meta property="nordic:guidelines"> element in package.opf.
-                                ("1.13.6", "1.4.6"),
-                                ("1.13.4", "1.4.5"),
-                                ("1.12.1", "1.4.2"),
-                                ("1.11.1-SNAPSHOT", "1.3.0"),
+                                  # 1.14.3 -> added 08.04.24 validate with Nordic EPUB3/DTBook Migrator. The Nordic EPUB3 Validator script can validate according to both 2015-1 and 2020-1 rulesets. Which ruleset will be applied is determined by the value of the <meta property="nordic:guidelines"> element in package.opf.
+                                  ("1.14.3", "1.5.2-SNAPSHOT"),
+                                  ("1.13.6", "1.4.6"),
+                                  ("1.13.4", "1.4.5"),
+                                  ("1.12.1", "1.4.2"),
+                                  ("1.11.1-SNAPSHOT", "1.3.0"),
                               ],
                               context={
-                                os.path.basename(epub_noimages_file): epub_noimages_file
+                                  os.path.basename(epub_noimages_file): epub_noimages_file
                               }) as dp2_job:
 
             # get validation report
-            report_file = os.path.join(dp2_job.dir_output, "html-report/report.xhtml")
+            report_file = os.path.join(
+                dp2_job.dir_output, "html-report/report.xhtml")
             if os.path.isfile(report_file):
                 with open(report_file, 'r') as result_report:
                     self.utils.report.attachment(result_report.readlines(),
-                                                 os.path.join(self.utils.report.reportDir(), "report.html"),
+                                                 os.path.join(
+                                                     self.utils.report.reportDir(), "report.html"),
                                                  "SUCCESS" if dp2_job.status == "SUCCESS" else "ERROR")
 
             if dp2_job.status != "SUCCESS":
                 self.utils.report.error("Klarte ikke å validere boken")
-                self.utils.report.title = self.title + ": " + epub.identifier() + " feilet 😭👎" + epubTitle
-                send_notification(epub.identifier(), "fail", self.title + ": " + self.book["name"] + " feilet 😭👎" + epubTitle)
+                self.utils.report.title = self.title + ": " + \
+                    epub.identifier() + " feilet 😭👎" + epubTitle
+                send_notification(epub.identifier(
+                ), "fail", self.title + ": " + self.book["name"] + " feilet 😭👎" + epubTitle)
                 return
 
         self.utils.report.debug("Making a copy of the EPUB to work on…")
@@ -274,42 +299,54 @@ class IncomingNordic(Pipeline):
         if mathML_validation_result is False:
             return False
         '''
-        self.utils.report.debug("Making sure that the EPUB has the correct file and directory permissions…")
+        self.utils.report.debug(
+            "Making sure that the EPUB has the correct file and directory permissions…")
         epub_fixed.fix_permissions()
 
         try:
             self.utils.report.info("Genererer ACE-rapport...")
-            ace_dir = os.path.join(self.utils.report.reportDir(), "accessibility-report")
-            process = self.utils.filesystem.run([IncomingNordic.ace_cli, "-o", ace_dir, epub_fixed.asFile()])
+            ace_dir = os.path.join(
+                self.utils.report.reportDir(), "accessibility-report")
+            process = self.utils.filesystem.run(
+                [IncomingNordic.ace_cli, "-o", ace_dir, epub_fixed.asFile()])
             if process.returncode == 0:
                 self.utils.report.info("ACE-rapporten ble generert.")
             else:
-                self.utils.report.warn("En feil oppstod ved produksjon av ACE-rapporten for " + epub.identifier())
+                self.utils.report.warn(
+                    "En feil oppstod ved produksjon av ACE-rapporten for " + epub.identifier())
                 self.utils.report.debug(traceback.format_stack())
 
             # attach report
             ace_status = None
             with open(os.path.join(ace_dir, "report.json")) as json_report:
-                ace_status = json.load(json_report)["earl:result"]["earl:outcome"]
+                ace_status = json.load(json_report)[
+                    "earl:result"]["earl:outcome"]
             if ace_status == "pass":
                 ace_status = "SUCCESS"
             else:
                 ace_status = "WARN"
-            self.utils.report.attachment(None, os.path.join(ace_dir, "report.html"), ace_status)
+            self.utils.report.attachment(None, os.path.join(
+                ace_dir, "report.html"), ace_status)
 
         except subprocess.TimeoutExpired:
-            self.utils.report.warn("Det tok for lang tid å lage ACE-rapporten for " + epub.identifier() + ", og prosessen ble derfor stoppet.")
+            self.utils.report.warn("Det tok for lang tid å lage ACE-rapporten for " +
+                                   epub.identifier() + ", og prosessen ble derfor stoppet.")
 
         except Exception:
-            self.utils.report.warn("En feil oppstod ved produksjon av ACE-rapporten for " + epub.identifier())
+            self.utils.report.warn(
+                "En feil oppstod ved produksjon av ACE-rapporten for " + epub.identifier())
             self.utils.report.debug(traceback.format_exc(), preformatted=True)
 
-        self.utils.report.info("Boken er valid. Kopierer til EPUB master-arkiv.")
+        self.utils.report.info(
+            "Boken er valid. Kopierer til EPUB master-arkiv.")
 
-        archived_path, stored = self.utils.filesystem.storeBook(epub_fixed.asDir(), epub.identifier())
+        archived_path, stored = self.utils.filesystem.storeBook(
+            epub_fixed.asDir(), epub.identifier())
         self.utils.report.attachment(None, archived_path, "DEBUG")
-        self.utils.report.title = self.title + ": " + epub.identifier() + " er valid 👍😄" + epubTitle
-        send_notification(epub.identifier(), "success", self.title + ": " + self.book["name"] + " er valid 👍😄" + epubTitle)
+        self.utils.report.title = self.title + ": " + \
+            epub.identifier() + " er valid 👍😄" + epubTitle
+        send_notification(epub.identifier(), "success", self.title +
+                          ": " + self.book["name"] + " er valid 👍😄" + epubTitle)
 
         self.utils.filesystem.deleteSource()
         return True
