@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import os
+
 import tempfile
 from pathlib import Path
-from bs4 import BeautifulSoup
 
 from core.pipeline import DummyPipeline, Pipeline
 from core.utils.epub import Epub
@@ -37,86 +36,6 @@ class InsertMetadata(Pipeline):
         return self.on_book()
 
     def on_book(self):
-        def check_metadata_inserted( xhtml_file_path):
-            """
-            Check if <meta name="nlbprod:metadata.inserted" content="true" /> exists in the XHTML file.
-            """
-            if not os.path.exists(xhtml_file_path):
-                self.utils.report.info("File does not exist: " + xhtml_file_path)
-                return False
-
-            try:
-                with open(xhtml_file_path, 'r', encoding='utf-8') as file:
-                    soup = BeautifulSoup(file, 'xml')  # Use 'xml' parser for XHTML files
-
-                # Check if the <meta name="nlbprod:metadata.inserted" content="true" /> exists
-                inserted_meta = soup.find("meta", attrs={"name": "nlbprod:metadata.inserted"})
-                if inserted_meta and inserted_meta.get("content") == "true":
-                    self.utils.report.info("Metadata inserted flag is 'true'.")
-                    return True
-                else:
-                    self.utils.report.info("Metadata inserted flag is not 'true' or not found.")
-                    return False
-
-            except Exception as e:
-                self.utils.report.info(f"Error processing XHTML file: {e}")
-                return False
-
-
-        def update_dc_identifier( xhtml_file_path, format_type):
-            """
-            Update the <meta name="dc:identifier" /> tag content based on the format type.
-            """
-            if not os.path.exists(xhtml_file_path):
-                self.utils.report.info("File does not exist: " + xhtml_file_path)
-                return False
-
-            try:
-                with open(xhtml_file_path, 'r', encoding='utf-8') as file:
-                    soup = BeautifulSoup(file, 'xml')  # Use 'xml' parser for XHTML files
-
-                # Determine which meta tag to read based on the format
-                format_map = {
-                    "XHTML": "nlbprod:identifier.ebook",
-                    "DAISY 2.02": "nlbprod:identifier.daisy202",
-                    "Braille": "nlbprod:identifier.braille"
-                }
-
-                meta_name_to_read = format_map.get(format_type)
-                if not meta_name_to_read:
-                    self.utils.report.info(f"Unsupported format: {format_type}")
-                    return False
-
-                # Find the relevant identifier meta tag
-                source_meta = soup.find("meta", attrs={"name": meta_name_to_read})
-                if not source_meta or "content" not in source_meta.attrs:
-                    self.utils.report.info(f"Source metadata '{meta_name_to_read}' not found.")
-                    return False
-
-                new_value = source_meta["content"]
-
-                # Find and update the <meta name="dc:identifier" />
-                dc_identifier_meta = soup.find("meta", attrs={"name": "dc:identifier"})
-                if dc_identifier_meta:
-                    dc_identifier_meta["content"] = new_value
-                    self.utils.report.info(f"Updated dc:identifier content to: {new_value}")
-
-                    # Write the modified content back to the file
-                    with open(xhtml_file_path, 'w', encoding='utf-8') as file:
-                        file.write(str(soup))
-
-                    self.utils.report.info("Metadata successfully updated.")
-                    return True
-                else:
-                    self.utils.report.info("dc:identifier meta tag not found.")
-                    return False
-
-            except Exception as e:
-                self.utils.report.info(f"Error processing XHTML file: {e}")
-                return False
-
-
-
         self.utils.report.attachment(None, self.book["source"], "DEBUG")
         epub = Epub(self.utils.report, self.book["source"])
 
@@ -153,20 +72,11 @@ class InsertMetadata(Pipeline):
         temp_epubdir = temp_epubdir_obj.name
         Filesystem.copy(self.utils.report, self.book["source"], temp_epubdir)
         temp_epub = Epub(self.utils.report, temp_epubdir)
-        ##test
-        xhtml_file = epub.identifier() + ".xhtml"
-        xhtml_file_path = os.path.normpath(os.path.join(os.path.join(temp_epubdir, "EPUB",xhtml_file)))
 
-        metadata_inserted_status = check_metadata_inserted(xhtml_file_path)
-        if metadata_inserted_status:
-            self.utils.report.info("Metadata er allerede satt inn i XHTML-filen.")
-            update_dc_identifier( xhtml_file_path, self.publication_format)
-
-        else:
-            is_valid = Metadata.insert_metadata(self.utils.report, temp_epub, publication_format=self.publication_format, report_metadata_errors=False)
-            if not is_valid:
-                self.utils.report.error("Bibliofil-metadata var ikke valide. Avbryter.")
-                return False
+        is_valid = Metadata.insert_metadata(self.utils.report, temp_epub, publication_format=self.publication_format, report_metadata_errors=False)
+        if not is_valid:
+            self.utils.report.error("Bibliofil-metadata var ikke valide. Avbryter.")
+            return False
 
         self.utils.report.info("Boken ble oppdatert med format-spesifikk metadata. Kopierer til {}-arkiv.".format(self.publication_format))
 

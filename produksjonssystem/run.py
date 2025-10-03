@@ -50,7 +50,6 @@ from nlbpub_previous import NlbpubPrevious  # noqa
 from nlbpub_to_docx import NLBpubToDocx  # noqa
 from nlbpub_to_epub import NlbpubToEpub  # noqa
 from nlbpub_to_html import NlbpubToHtml  # noqa
-from nlbpub_to_tr_docx import NLBpubToTrDocx  # noqa
 from nlbpub_to_narration_epub import NlbpubToNarrationEpub  # noqa
 from nlbpub_to_pef import NlbpubToPef  # noqa
 from nlbpub_to_tts_dtbook import NlbpubToTtsDtbook  # noqa
@@ -238,7 +237,6 @@ class Produksjonssystem():
         self.dirs_ranked[-1]["dirs"]["html"] = os.path.join(book_archive_dirs["master"], "utgave-ut/HTML")
         self.dirs_ranked[-1]["dirs"]["epub-ebook"] = os.path.join(book_archive_dirs["share"], "daisy202/EPUB")
         self.dirs_ranked[-1]["dirs"]["docx"] = os.path.join(book_archive_dirs["master"], "utgave-ut/DOCX")
-        self.dirs_ranked[-1]["dirs"]["trd_docx"] = os.path.join(book_archive_dirs["master"], "utgave-ut/Trd_DOCX")
         self.dirs_ranked[-1]["dirs"]["daisy202"] = os.path.join(book_archive_dirs["share"], "daisy202")
         self.dirs_ranked[-1]["dirs"]["abstracts"] = os.path.join(book_archive_dirs["distribution"], "www/abstracts")
         self.dirs_ranked[-1]["dirs"]["daisy202-ready"] = os.path.join(book_archive_dirs["master"], "utgave-klargjort/lydbok-til-validering")
@@ -316,13 +314,10 @@ class Produksjonssystem():
             [NLBpubToDocx(retry_missing=True,
                           check_identifiers=True,
                           during_working_hours=True),           "pub-ready-docx",      "docx"],
-            [NLBpubToTrDocx(retry_missing=True,
-                          check_identifiers=True,
-                          during_working_hours=True),           "pub-ready-docx",      "trd_docx"],
-            #[Newsletter(during_working_hours=True,
-            #            during_night_and_weekend=True),         None,                  "pub-ready-braille"],
-            #[NewspaperSchibsted(during_working_hours=True,
-            #                    during_night_and_weekend=True), "news",                "dtbook_news"],
+            [Newsletter(during_working_hours=True,
+                        during_night_and_weekend=True),         None,                  "pub-ready-braille"],
+            [NewspaperSchibsted(during_working_hours=True,
+                                during_night_and_weekend=True), "news",                "dtbook_news"],
             # punktskrift
             [InsertMetadataBraille(retry_missing=True,
                                    check_identifiers=True,
@@ -346,25 +341,25 @@ class Produksjonssystem():
                            labels=["Lydbok", "Statped"]),       "epub_narration",      "daisy202"],
 
             # TTS-lydbok
-            #[NlbpubToTtsDtbook(retry_missing=True,
-            #                   check_identifiers=True,
-            #                   during_working_hours=True,
-            #                   during_night_and_weekend=True),  "pub-in-audio",        "dtbook_tts"],
-            #[DummyPipeline("Talesyntese i Pipeline 1",
-            #               labels=["Lydbok"]),                  "dtbook_tts",          "daisy202"],
-            #[DummyTtsNewspaperSchibsted("Talesyntese i Pipeline 1 for aviser",
-            #                            labels=["Lydbok"]),     "dtbook_news",          "daisy202"],
+            [NlbpubToTtsDtbook(retry_missing=True,
+                               check_identifiers=True,
+                               during_working_hours=True,
+                               during_night_and_weekend=True),  "pub-in-audio",        "dtbook_tts"],
+            [DummyPipeline("Talesyntese i Pipeline 1",
+                           labels=["Lydbok"]),                  "dtbook_tts",          "daisy202"],
+            [DummyTtsNewspaperSchibsted("Talesyntese i Pipeline 1 for aviser",
+                                        labels=["Lydbok"]),     "dtbook_news",          "daisy202"],
 
             # lydutdrag
-            #[Audio_Abstract(retry_missing=True,
-            #                during_working_hours=True,
-            #                during_night_and_weekend=True),     "daisy202",            "abstracts"],
+            [Audio_Abstract(retry_missing=True,
+                            during_working_hours=True,
+                            during_night_and_weekend=True),     "daisy202",            "abstracts"],
 
             # lydbok distribusjon
-            #[Daisy202ToDistribution(retry_all=True,
-            #                        during_working_hours=True,
-            #                        during_night_and_weekend=True),       "daisy202-ready",            "daisy202-dist"],
-            #[MagazinesToValidation(retry_missing=False),       "pub-ready-magazine",            "daisy202-ready"],
+            [Daisy202ToDistribution(retry_all=True,
+                                    during_working_hours=True,
+                                    during_night_and_weekend=True),       "daisy202-ready",            "daisy202-dist"],
+            [MagazinesToValidation(retry_missing=False),       "pub-ready-magazine",            "daisy202-ready"],
         ]
 
     # Could possibly be moved to a configuration file
@@ -379,38 +374,35 @@ class Produksjonssystem():
             "name": "Innlesing",
             "steps": ["insert-metadata-daisy202", "nlbpub-to-narration-epub", "dummy_innlesingmedhindenburg", "create-abstracts", "daisy202-to-distribution"],
         },
-        #{
-        #    "id": "tts",
-        #    "name": "Talesyntese",
-        #    "steps": ["insert-metadata-daisy202", "nlbpub-to-tts-dtbook", "dummy_talesynteseipipeline1", "create-abstracts", "daisy202-to-distribution"],
-        #    "filters": {
-        #        "libraries": ["NLB"],
-        #    },
-        #},
-
-        #{
-        #    "id": "schibsted",
-        #    "name": "Schibsted-aviser",
-        #    "steps": ["newspaper-schibsted", "dummy_talesynteseipipeline1foraviser", "create-abstracts", "daisy202-to-distribution"],
-        #    "filters": {
-        #        "libraries": ["NLB"],
-        #    },
-        #},
+        {
+            "id": "tts",
+            "name": "Talesyntese",
+            "steps": ["insert-metadata-daisy202", "nlbpub-to-tts-dtbook", "dummy_talesynteseipipeline1", "create-abstracts", "daisy202-to-distribution"],
+            "filters": {
+                "libraries": ["NLB"],
+            },
+        },
+        {
+            "id": "schibsted",
+            "name": "Schibsted-aviser",
+            "steps": ["newspaper-schibsted", "dummy_talesynteseipipeline1foraviser", "create-abstracts", "daisy202-to-distribution"],
+            "filters": {
+                "libraries": ["NLB"],
+            },
+        },
         {
             "id": "braille",
             "name": "Punktskrift",
             "steps": ["insert-metadata-braille", "prepare-for-braille", "nlbpub-to-pef"],
         },
-
-        #{
-        #    "id": "braille-newsletter",
-        #    "name": "Nyhetsbrev i punktskrift",
-        #    "steps": ["newsletter-to-braille", "nlbpub-to-pef"],
-        #    "filters": {
-        #        "libraries": ["NLB"],
-        #    },
-        #},
-
+        {
+            "id": "braille-newsletter",
+            "name": "Nyhetsbrev i punktskrift",
+            "steps": ["newsletter-to-braille", "nlbpub-to-pef"],
+            "filters": {
+                "libraries": ["NLB"],
+            },
+        },
         {
             "id": "e-book",
             "name": "E-bøker",
@@ -476,7 +468,10 @@ class Produksjonssystem():
                     "Book archives can not contain eachother ({} contains or is contained by {})".format(self.book_archive_dirs[a], self.book_archive_dirs[d]))
         for d in self.dirs:
             self.dirs[d] = os.path.normpath(self.dirs[d])
-
+        print("-----------(self.book_archive_dirs")
+        print(self.book_archive_dirs)
+        print("¨¨¨¨¨¨¨¨*** self.dirs")
+        print(self.dirs)
         for d in self.dirs:
             if not d == "reports":
                 assert [a for a in self.book_archive_dirs if self.dirs[d].startswith(self.book_archive_dirs[a])], (
