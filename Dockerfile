@@ -1,61 +1,61 @@
 FROM ubuntu:22.04
-RUN apt-get update && apt-get clean
-#RUN apt-get clean
-#Java
-#RUN apt-get update && apt-get install -y openjdk-8-jdk
 
-#RUN apt-get install -y openjdk-8-jdk
+ENV DEBIAN_FRONTEND=noninteractive \
+    PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+    TRIGGER_DIR="/tmp/trigger-produksjonssystem" \
+    QUICKBASE_DUMP_DIR="/opt/quickbase" \
+    JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64/jre \
+    EPUBCHECK_HOME="/opt/epubcheck"
 
+# System deps (no recommends) + Python toolchain + JDK8 + Node LTS + utilities
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+    build-essential curl gnupg wget ca-certificates \
+    python-is-python3 python3-pip python3-distutils python3-dev libffi-dev \
+    xdg-utils libegl1 libopengl0 \
+    openjdk-8-jdk \
+    cabextract xfonts-utils graphviz libavcodec-extra ffmpeg libxml2-dev libxslt1-dev \
+    nano; \
+    \
+    # Node.js LTS
+    curl -fsSL https://deb.nodesource.com/setup_lts.x | bash -; \
+    apt-get install -y --no-install-recommends nodejs; \
+    \
+    # DAISY Ace (global)
+    npm install -g @daisy/ace; \
+    npm cache clean --force; \
+    \
+    # Calibre (specific version)
+    wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh \
+    | sh /dev/stdin version=6.26.0; \
+    \
+    # MS core fonts (remove .deb afterwards)
+    wget -O /tmp/ttf-mscorefonts-installer_3.8.1_all.deb \
+    http://ftp.de.debian.org/debian/pool/contrib/m/msttcorefonts/ttf-mscorefonts-installer_3.8.1_all.deb; \
+    dpkg -i /tmp/ttf-mscorefonts-installer_3.8.1_all.deb || true; \
+    apt-get -f install -y; \
+    rm -f /tmp/ttf-mscorefonts-installer_3.8.1_all.deb; \
+    \
+    # Python packages kept minimal; upgrade setuptools + cryptography early
+    pip install --no-cache-dir --upgrade setuptools cryptography; \
+    \
+    # Clean apt caches to shrink layer
+    apt-get clean; \
+    rm -rf /var/lib/apt/lists/* /root/.cache
 
-#RUN apt-get install -y build-essential
-#RUN apt-get -y install build-essential curl gnupg wget
-RUN apt-get -y update && apt-get install -y build-essential curl gnupg wget python-is-python3 python3-pip python3-distutils python3-dev libffi-dev  xdg-utils libegl1 libopengl0 &&\
-  pip install setuptools --upgrade &&\
-  pip install cryptography &&\
-  apt-get install nano -y &&\
-  apt-get install -y openjdk-8-jdk
+# Epubcheck
+COPY epubcheck-5.3.0 /opt/epubcheck
 
-#RUN pip install cryptography
-
-# We don't need the standalone Chromium
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD true
-#LTS (Long-Term Support) versions and will receive updates and support for an extended period. lts takes longer to install
-RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - &&\
-#RUN curl -sL https://deb.nodesource.com/setup_16.x | bash - &&\
-  apt-get install -y nodejs &&\
-  npm install @daisy/ace -g
-
-
-#RUN wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | sh /dev/stdin
-#VERSION  7.1.0. fails to install
-RUN  wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | sh /dev/stdin version=6.26.0
-
-RUN apt-get install -qy cabextract xfonts-utils &&\
-  wget http://ftp.de.debian.org/debian/pool/contrib/m/msttcorefonts/ttf-mscorefonts-installer_3.8.1_all.deb &&\
-  dpkg -i ttf-mscorefonts-installer_3.8.1_all.deb &&\
-  apt-get install -y graphviz libavcodec-extra ffmpeg libxml2-dev libxslt1-dev
-
-
-#RUN apt-get install -y graphviz
-
-#RUN apt-get install -y libavcodec-extra ffmpeg libxml2-dev libxslt1-dev
-#RUN apt-get install -y ffmpeg
-#RUN apt-get install -y libxml2-dev libxslt1-dev
-
-
-COPY epubcheck-5.0.0 /opt/epubcheck
-COPY . /usr/src/app
+# App
 WORKDIR /usr/src/app
+COPY . /usr/src/app
 
-ENV TRIGGER_DIR="/tmp/trigger-produksjonssystem"
-ENV QUICKBASE_DUMP_DIR="/opt/quickbase"
-ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64/jre
-ENV EPUBCHECK_HOME="/opt/epubcheck"
+# Healthcheck
+HEALTHCHECK --interval=30s --timeout=3s CMD curl -f http://localhost:3800/prodsys/v1/health || exit 1
 
-# Add HEALTHCHECK
-HEALTHCHECK --interval=30s --timeout=3s \
-  CMD curl -f http://localhost:3800/prodsys/v1/health || exit 1
+# Python deps (no pip cache)
+RUN set -eux; \
+    pip install --no-cache-dir -r requirements.txt
 
-
-RUN pip install -r requirements.txt
-CMD ["python","produksjonssystem/run.py"]
+CMD ["python", "produksjonssystem/run.py"]

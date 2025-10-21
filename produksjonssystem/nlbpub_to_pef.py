@@ -304,7 +304,8 @@ class NlbpubToPef(Pipeline):
            ]"""
             pipeline_and_script_version = [
                 ("1.14.17-p1", "6.2.0"), #added 26.04.24
-                ("1.14.17-p2-SNAPSHOT", "6.2.0"), #added 07.04.24
+                #("1.14.17-p2-SNAPSHOT", "6.2.0"), #added 07.04.24
+                #("1.15.2", "8.2.1")
 
 
            ]

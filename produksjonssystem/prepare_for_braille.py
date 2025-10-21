@@ -6,7 +6,7 @@ import re
 import shutil
 import sys
 import tempfile
-
+from bs4 import BeautifulSoup
 from lxml import etree as ElementTree
 
 from core.pipeline import Pipeline
@@ -158,7 +158,70 @@ class PrepareForBraille(Pipeline):
         shutil.copy(temp_html, html_file)
         # TODO: sett inn HTML5 doctype: <!DOCTYPE html>
 
-        # ---------- slett EPUB-spesifikke filer ----------
+        # ---------- plasser braille-specific-info riktig og flytt innhold fra pef-about ----------
+        self.utils.report.info("Plasserer braille-specific-info riktig og flytter innhold fra pef-about")
+
+        soup = BeautifulSoup(open(html_file, "r", encoding="utf-8"), "html.parser")
+
+        pef_title = soup.find("section", class_="pef-titlepage")
+        frontmatter = soup.find("section", attrs={"epub:type": "frontmatter"})
+        pef_about = soup.find("section", class_="pef-about")
+        braille_section = soup.find("section", class_="braille-specific-info")
+
+        # Incase insert-boilerplate inserts the production number in a <p class="Høyre-justert">
+        # Replace <p class="Høyre-justert"> which contains production number with empty paragraph <p> </p> 
+        if pef_title:
+            p_right = pef_title.find("p", class_="Høyre-justert")
+            if p_right:
+                new_p = soup.new_tag("p")
+                new_p.string = "\u00A0"  # non-breaking space
+                p_right.replace_with(new_p)
+                self.utils.report.info("Erstattet p produksjonsnummer med tom <p> </p>.")
+            else:
+                self.utils.report.info("Fant ikke p produksjonsnummer.")
+
+        # Create or detach existing braille section
+        if braille_section:
+            braille_section.extract()
+        else:
+            braille_section = soup.new_tag("section", **{"class": "braille-specific-info"})
+
+        # Placement logic (updated per your instructions)
+        if pef_title:
+            self.utils.report.info("Plasserer braille-specific-info rett under <section class='pef-titlepage'>")
+            pef_title.insert_after(braille_section)
+
+        elif frontmatter:
+            self.utils.report.info("Ingen titlepage – plasserer rett over første <section epub:type='frontmatter'>")
+            frontmatter.insert_before(braille_section)
+
+        else:
+            bodymatter = soup.find("section", attrs={"epub:type": "bodymatter"})
+            if bodymatter:
+                self.utils.report.info("Ingen titlepage/frontmatter – plasserer rett over <section epub:type='bodymatter'>")
+                bodymatter.insert_before(braille_section)
+            else:
+                self.utils.report.info("Ingen titlepage, frontmatter eller bodymatter – plasserer øverst i <body>")
+                if soup.body:
+                    soup.body.insert(0, braille_section)
+                else:
+                    soup.insert(0, braille_section)
+
+        # Move all content from pef-about into braille-specific-info
+        if pef_about:
+            self.utils.report.info("Flytter innhold fra pef-about inn i braille-specific-info og fjerner pef-about.")
+            for child in list(pef_about.contents):
+                braille_section.append(child.extract())
+            pef_about.decompose()
+
+        # Save to file
+        with open(html_file, "w", encoding="utf-8") as f:
+            f.write(str(soup))
+
+        self.utils.report.info("Ferdig med flytting av punktskrift merknader.")
+
+
+       # ---------- slett EPUB-spesifikke filer ----------
 
         items = opf_xml.xpath("/*/*[local-name()='manifest']/*")
         for item in items:
