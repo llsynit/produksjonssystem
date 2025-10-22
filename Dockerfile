@@ -43,7 +43,7 @@ RUN apt-get install -qy cabextract xfonts-utils &&\
 #RUN apt-get install -y libxml2-dev libxslt1-dev
 
 
-COPY epubcheck-5.0.0 /opt/epubcheck
+COPY epubcheck-5.3.0 /opt/epubcheck
 COPY . /usr/src/app
 WORKDIR /usr/src/app
 
