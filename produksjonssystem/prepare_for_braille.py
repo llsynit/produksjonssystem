@@ -211,8 +211,10 @@ class PrepareForBraille(Pipeline):
         # Move all content from pef-about into braille-specific-info
         if pef_about:
             self.utils.report.info("Flytter innhold fra pef-about inn i braille-specific-info og fjerner pef-about.")
-            for child in list(pef_about.contents):
-                braille_section.append(child.extract())
+            pef_children = list(pef_about.contents)
+              # Insert each child at the beginning of braille_section, preserving order
+            for child in reversed(pef_children):
+                braille_section.insert(0, child.extract())
             pef_about.decompose()
 
         # Save to file
