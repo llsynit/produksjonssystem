@@ -355,14 +355,15 @@ class NlbpubToPef(Pipeline):
                     "page-width": '38',
                     "page-height": '29',
                     "toc-depth": '2',
-                    "maximum-number-of-sheets": '50',
+                    #"maximum-number-of-sheets": '50',
                     "include-production-notes" : 'true',
                     "hyphenation" : 'none',
                     "include-preview": 'true',
                     "hyphenation-at-page-breaks" : 'except-at-volume-breaks',
                     "allow-volume-break-inside-leaf-section-factor" : '10',
                     "prefer-volume-break-before-higher-level-factor" : '1',
-                    "stylesheet-parameters": "(skip-margin-top-of-page:true)",
+                    #"stylesheet-parameters": "(skip-margin-top-of-page:true)",
+                    "stylesheet-parameters": "(skip-margin-top-of-page:true)(maximum-number-of-sheets:50)",
                 }
             else:
                 braille_arguments = braille_arguments_from_queue

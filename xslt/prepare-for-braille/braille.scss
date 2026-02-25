@@ -34,9 +34,8 @@ $include-em: true !default;
 
 	/* Base page style that other page styles inherit from */
 	@page {
-		/* Counter for volume 1 and bodies of volumes 2, 3, ... */
+		/* Counter for body */
 		/* Numbering in new volume continues where previous volume left off */
-		/* Count pages but hide them by default (notably on title pages) */
 		counter-increment: page;
 	}
 
@@ -44,23 +43,7 @@ $include-em: true !default;
 		page: auto;
 	}
 
-	/* Page style for frontmatter pages in volume 1 except title page */
-	@page front-first {
-		margin-bottom: 1;
-		@bottom-center {
-			content: counter(page, lower-roman);
-		}
-	}
-
-	@volume:first {
-		@begin {
-			page: front-first;
-			// FIXME: enable in future Pipeline version
-			//counter-set: none; /* override the counter-set in @volume below */
-		}
-	}
-
-	/* Page style for title pages in volumes 2, 3, ... */
+	/* Page style for title pages */
 	@page titlepage {
 		/* Count pages but hide them */
 		counter-increment: front;
@@ -70,10 +53,11 @@ $include-em: true !default;
 		page: titlepage;
 	}
 
-	/* Page style for other frontmatter pages in volumes 2, 3, ... */
+	/* Page style for other frontmatter pages */
 	@page front {
 		counter-increment: front;
 		margin-bottom: 1;
+
 		@bottom-center {
 			content: counter(front, lower-roman);
 		}
@@ -90,6 +74,7 @@ $include-em: true !default;
 	/* Page style for body */
 	@page body {
 		margin-bottom: 1;
+
 		@bottom-center {
 			content: counter(page);
 		}
@@ -121,13 +106,13 @@ $include-em: true !default;
 
 	[epub|type~="pagebreak"] {
 		&[title] {
-			string-set: print-page attr(title)
-			            print-page-break-indicator "⠿";
+			string-set: print-page attr(title) print-page-break-indicator "⠿";
 		}
+
 		&:not([title]) {
-			string-set: print-page content()
-			            print-page-break-indicator "⠿";
+			string-set: print-page content() print-page-break-indicator "⠿";
 		}
+
 		&::after {
 			string-set: print-page-break-indicator "";
 		}
@@ -137,18 +122,20 @@ $include-em: true !default;
 	 * bodymatter to frontmatter). Bodymatter sections are not guaranteed to have a
 	 * epub:type (top-level sections without are implicitly bodymatter).
 	 */
-	body[epub|type~="frontmatter"] + body:not([epub|type~="frontmatter"]),
-	section[epub|type~="frontmatter"] + section:not([epub|type~="frontmatter"]) {
+	body[epub|type~="frontmatter"]+body:not([epub|type~="frontmatter"]),
+	section[epub|type~="frontmatter"]+section:not([epub|type~="frontmatter"]) {
 		string-set: print-page "";
 	}
 
 	@page body {
 		margin-bottom: 1;
+
 		@bottom-right {
-			content: string(print-page-break-indicator, first)
-			         string(print-page, last);
+			content: string(print-page-break-indicator, first) string(print-page, last);
 		}
-		@left { // @-daisy-left
+
+		@left {
+			// @-daisy-left
 			content: -obfl-marker-indicator(pagenum, "⠿");
 			-daisy-text-transform: none;
 		}
@@ -159,15 +146,18 @@ $include-em: true !default;
 /*               Line spacing                                                 */
 /* -------------------------------------------------------------------------- */
 
-@if $line-spacing == double {
+@if $line-spacing ==double {
 	:root {
-		line-height: 1; /* to cancel out generic rule */
+		line-height: 1;
+		/* to cancel out generic rule */
 	}
 
-	body, section {
+	body,
+	section {
+
 		&:not([epub|type~="backmatter"],
-		      .pef-titlepage,
-		      .braille-specific-info) {
+			.pef-titlepage,
+			.braille-specific-info) {
 			line-height: 2;
 		}
 	}
@@ -182,12 +172,14 @@ $include-em: true !default;
 /* -------------------------------------------------------------------------- */
 
 /* Always start top-level chapters on right-hand page */
-html:has(body ~ body) > body,
-html:not(:has(body ~ body)) > body > section {
+html:has(body ~ body)>body,
+html:not(:has(body ~ body))>body>section {
+
 	&:not(.pef-titlepage,
-	      .braille-specific-info) {
+		.braille-specific-info) {
+
 		&:not([epub|type~="part"]),
-		&[epub|type~="part"] > section {
+		&[epub|type~="part"]>section {
 			page-break-before: right;
 		}
 	}
@@ -198,7 +190,12 @@ section[epub|type~="part"] {
 }
 
 /* Avoid page breaks after a headline (orphaned headline) */
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
 	page-break-after: avoid;
 }
 
@@ -213,7 +210,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Always start a new volume before a new part. */
 /* Note: this selector assumes that parts in EPUBs are sibling elements. */
-section[epub|type~="part"] ~ section[epub|type~="part"] {
+section[epub|type~="part"]~section[epub|type~="part"] {
 	-daisy-volume-break-before: always;
 }
 
@@ -224,7 +221,12 @@ br.volume-break {
 }
 
 /* Ref- req-49 */
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
 
 	/* The '\A\A0' will produce an empty line after a resumed title, only when the resumed
 	 * title is not empty.
@@ -250,17 +252,13 @@ h1, h2, h3, h4, h5, h6 {
 /* Insert generated content at start of volume */
 @-daisy-volume {
 	@begin {
-		content: -daisy-flow(titlepage, document)
-		         -daisy-flow(volume-toc, document);
+		content: -daisy-flow(titlepage, document) -daisy-flow(volume-toc, document);
 	}
 }
 
-@-daisy-volume:first {
+@-daisy-volume: first {
 	@begin {
-		content: -daisy-flow(titlepage-first, document)
-		         -daisy-flow(document-toc, document)
-		         -daisy-flow(volume-toc, document)
-		         -daisy-flow(other-front, document);
+		content: -daisy-flow(titlepage-first, document) -daisy-flow(document-toc, document) -daisy-flow(volume-toc, document) -daisy-flow(other-front, document);
 	}
 }
 
@@ -274,15 +272,17 @@ h1, h2, h3, h4, h5, h6 {
 	margin-right: 1;
 	hyphens: none;
 
-	& > p {
+	&>p {
 		margin-top: 0;
 		margin-bottom: 0;
 	}
-	& > .Høyre-justert {
+
+	&>.Høyre-justert {
 		text-align: right;
 	}
 
 	-daisy-flow: titlepage-first;
+
 	&::duplicate {
 		-daisy-flow: titlepage;
 	}
@@ -292,6 +292,7 @@ h1, h2, h3, h4, h5, h6 {
 	&::before {
 		content: "Hefte " -obfl-evaluate("(round $volume)");
 	}
+
 	&::after {
 		content: -obfl-evaluate("(round $volumes)");
 	}
@@ -322,11 +323,13 @@ $toc-depth: 2 !default;
 			-obfl-right-text-indent: 3;
 			margin-top: 0;
 			text-indent: -2;
+
 			&::after {
 				/* The print page numbers are placed in rounded brackets after each heading in the TOC. */
 				content: " (" -daisy-target-string(attr(href), print-page) ")"
-				         " " /*-obfl-*/leader("⠄", $page-width - if($show-print-page-numbers, 2, 1) - 2, right)
-				         " " target-counter(attr(href), page);
+					" "
+					/*-obfl-*/
+					leader("⠄", $page-width - if($show-print-page-numbers, 2, 1) - 2, right) " " target-counter(attr(href), page);
 			}
 		}
 	}
@@ -375,7 +378,7 @@ html:has(> head > meta[name="dc:language"][content|="nb"]) #generated-volume-toc
 /* To limit the number of levels of headings in a TOC, there is the global "toc-depth"
  * parameter, but in addition you can also limit the number of levels using CSS:
  */
-#generated-document-toc > li > ol {
+#generated-document-toc>li>ol {
 	display: none;
 }
 
@@ -407,11 +410,12 @@ h1[epub|type~="z3998:author"] {
 
 *[epub|type~="frontmatter"] {
 	display: none;
+
 	&:has(> *:not(h1[epub|type~="fulltitle"],
-	              h1[epub|type~="z3998:covertitle"],
-	              h1[epub|type~="z3998:author"],
-	              .pef-titlepage,
-	              .braille-specific-info)) {
+			h1[epub|type~="z3998:covertitle"],
+			h1[epub|type~="z3998:author"],
+			.pef-titlepage,
+			.braille-specific-info)) {
 		display: block;
 	}
 }
@@ -435,6 +439,7 @@ p.line {
 /* -------------------------------------------------------------------------- */
 
 @if ($include-strong) {
+
 	strong,
 	b {
 		-daisy-text-transform: -louis-italic;
@@ -442,6 +447,7 @@ p.line {
 }
 
 @if ($include-em) {
+
 	em,
 	i {
 		-daisy-text-transform: -louis-italic;
@@ -469,16 +475,22 @@ h1 {
 [xml|lang]:not([xml|lang|="no"]),
 [lang]:not([lang|="no"]) {
 	-daisy-text-transform: uncontracted;
-	[xml|lang|="no"], [lang|="no"] {
+
+	[xml|lang|="no"],
+	[lang|="no"] {
 		/* "contracted" means "allow contracted" */
 		-daisy-text-transform: contracted;
 	}
 }
 
 @if $hyphenation and $force-norwegian {
-	[xml|lang]:not([xml|lang|="no"]), [lang]:not([lang|="no"]) {
+
+	[xml|lang]:not([xml|lang|="no"]),
+	[lang]:not([lang|="no"]) {
 		hyphens: manual;
-		[xml|lang|="no"], [lang|="no"] {
+
+		[xml|lang|="no"],
+		[lang|="no"] {
 			hyphens: auto;
 		}
 	}
@@ -560,7 +572,8 @@ h2,
 }
 
 /* depth 1 */
-h1, *[epub|type~="part"] h2 {
+h1,
+*[epub|type~="part"] h2 {
 	margin: 2 4 1 5;
 	border: none;
 	-obfl-underline: ⠉;
@@ -573,15 +586,26 @@ h1, *[epub|type~="part"] h2 {
 	padding: 0 1;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
 	text-indent: 0;
 	hyphens: none;
 }
 
 /* Suppress line above h4-h6 if it follows a h3-h6 */
-h3, h4, h5, h6 {
-	+ section > {
-		h4, h5, h6 {
+h3,
+h4,
+h5,
+h6 {
+	+section> {
+
+		h4,
+		h5,
+		h6 {
 			&:first-child {
 				margin-top: 0;
 			}
@@ -589,7 +613,12 @@ h3, h4, h5, h6 {
 	}
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
 
 	/* h1-h6 elements with the class "braille-task-heading" should have this style applied
 	 * instead of the normal headline style.
@@ -646,8 +675,9 @@ blockquote {
 /* No extra margin when an element is a descendant of aside */
 @mixin margin-left-except-within-aside($margin-left) {
 	margin-left: $margin-left;
+
 	aside:not(.braille-aside-no-indent,
-	          .braille-aside-strek) & {
+		.braille-aside-strek) & {
 		margin-left: 0;
 	}
 }
@@ -692,17 +722,18 @@ aside {
 			display: inline;
 		}
 
-		> p:first-child::before, /* you can add more selectors like this, for every
+		>p:first-child::before,
+		/* you can add more selectors like this, for every
 		                          * block element that can appear inside prodnote */
-		> ul:first-child > :first-child::before,
-		> ol:first-child > :first-child::before,
+		>ul:first-child> :first-child::before,
+		>ol:first-child> :first-child::before,
 		&:not(:has(ul, ol, p))::before {
 			content: "⠰⠄";
 		}
 
-		> p:last-child::after,
-		> ul:last-child > :last-child::after,
-		> ol:last-child > :last-child::after,
+		>p:last-child::after,
+		>ul:last-child> :last-child::after,
+		>ol:last-child> :last-child::after,
 		&:not(:has(ul, ol, p))::after {
 			content: "⠠⠆";
 		}
@@ -742,13 +773,14 @@ figure.image-series {
 	/* If multiple figures are wrapped inside an image-series, place the empty line above the outer figure,
 	 * and not in between the inner figures.
 	 */
-	figure.image-series > & {
+	figure.image-series>& {
 		margin-top: 0;
 	}
 
 	/* Empty line below */
 	+,
-	+ div[epub|type~="pagebreak"] + {
+	+div[epub|type~="pagebreak"]+ {
+
 		p,
 		ul,
 		ol {
@@ -757,7 +789,7 @@ figure.image-series {
 	}
 
 	/* Show alt text for images with alt text (except decorative images) */
-	> img[alt]:not([alt=""],[alt="image"])::after {
+	>img[alt]:not([alt=""], [alt="image"])::after {
 		display: block;
 		content: "Bilde: " attr(alt);
 		@include margin-left-except-within-aside(2);
@@ -765,11 +797,12 @@ figure.image-series {
 	}
 
 	/* Image captions */
-	> figcaption {
+	>figcaption {
 		display: block;
 		margin: 0;
 		@include margin-left-except-within-aside(2);
 		text-indent: 0;
+
 		&::before {
 			content: "Bildetekst: ";
 		}
@@ -777,9 +810,10 @@ figure.image-series {
 }
 
 /* Indent img and figcaption if they follow another element in the same figure */
-figure.image > :not(img:not([alt]), img[alt=""], img[alt="image"]) ~,
-figure.image-series > * ~ figure.image > {
-	img[alt]:not([alt=""],[alt="image"])::after,
+figure.image> :not(img:not([alt]), img[alt=""], img[alt="image"])~,
+figure.image-series>*~figure.image> {
+
+	img[alt]:not([alt=""], [alt="image"])::after,
 	figcaption {
 		text-indent: 2;
 	}
@@ -808,7 +842,8 @@ div[epub|type~="z3998:poem"] {
 	text-indent: 2;
 }
 
-section.linegroup, div.linegroup {
+section.linegroup,
+div.linegroup {
 	margin-top: 1;
 	margin-bottom: 1;
 	text-indent: -2;
@@ -836,11 +871,13 @@ li {
 	text-indent: -2;
 	display: list-item;
 	orphans: 2;
+
 	ul,
 	ol {
 		margin-top: 0;
 		margin-bottom: 0;
 	}
+
 	p:first-child {
 		display: inline;
 	}
@@ -881,7 +918,7 @@ dd {
 }
 
 .list-style-type-upper-roman {
-	list-style-type:upper-roman;
+	list-style-type: upper-roman;
 }
 
 .list-style-type-upper-roman::after {
@@ -933,8 +970,9 @@ table {
 		display: table;
 		-obfl-table-col-spacing: 2;
 		-obfl-preferred-empty-space: 0;
-		td > p,
-		th > p {
+
+		td>p,
+		th>p {
 			display: inline;
 		}
 	}
@@ -947,24 +985,29 @@ table {
 	&%table-linearized {
 		display: block;
 		-daisy-render-table-by: row;
-		&:has(> thead          th):not(:has(> :not(thead         ) th)),
+
+		&:has(> thead th):not(:has(> :not(thead) th)),
 		&:has(> tr:first-child th):not(:has(> :not(tr:first-child) th)) {
 			-daisy-render-table-by: column;
 		}
+
 		&::list-item {
 			display: block;
 		}
+
 		&::table-by(row),
 		&::table-by(column) {
 			display: block;
 			text-indent: -2;
 			margin-left: 2;
+
 			&::list-item {
 				&::before {
 					content: " ⠆ ";
 					-daisy-text-transform: none;
 					hyphens: initial;
 				}
+
 				&:first-child {
 					&::before {
 						content: none;
@@ -972,8 +1015,9 @@ table {
 				}
 			}
 		}
-		td > p,
-		th > p {
+
+		td>p,
+		th>p {
 			display: inline;
 		}
 	}
@@ -981,24 +1025,30 @@ table {
 	&%table-as-list {
 		display: block;
 		-daisy-render-table-by: row;
-		&:has(> thead          th):not(:has(> :not(thead         ) th)),
+
+		&:has(> thead th):not(:has(> :not(thead) th)),
 		&:has(> tr:first-child th):not(:has(> :not(tr:first-child) th)) {
 			-daisy-render-table-by: column;
 		}
+
 		th::after {
 			content: ": ";
 		}
+
 		&::list-item {
 			display: block;
 		}
+
 		&::table-by(row),
 		&::table-by(column) {
 			display: block;
 			margin-left: 2;
+
 			&::list-item {
 				display: block;
 				margin-left: 2;
 				text-indent: -2;
+
 				&:first-child {
 					text-indent: -4;
 					// does not work:
@@ -1006,11 +1056,13 @@ table {
 				}
 			}
 		}
-		td > p,
-		th > p {
+
+		td>p,
+		th>p {
 			/* "text-indent: inherit" does not work so we just drop p's altogether. */
 			display: inline;
 		}
+
 		td:blank::after {
 			content: "(tom)";
 		}
@@ -1023,6 +1075,7 @@ table {
 		 * total height in matrix format is more than 33% larger.
 		 */
 		-obfl-scenario-cost: -obfl-evaluate("(+ (* 10 $forced-break-count) (* .75 $total-height))");
+
 		&:-obfl-alternate-scenario {
 			@extend %table-as-list;
 			-obfl-scenario-cost: -obfl-evaluate("$total-height");
@@ -1095,6 +1148,7 @@ a[epub|type~="noteref"] {
 	/* Note: inline content in notes are wrapped into <p> elements in pre-processing.xsl */
 	*:first-child {
 		text-indent: -2;
+
 		&::before {
 			content: "⠠";
 		}
@@ -1135,16 +1189,21 @@ a[epub|type~="noteref"] {
  */
 @mixin noteref($refattr) {
 	display: inline;
+
 	&::before {
 		content: "⠠";
 	}
+
 	&::alternate {
 		display: block;
 		content: -daisy-target-content(attr($refattr));
 		margin-left: 4;
-		@if ($notes-placement == "bottom-of-page") {
+
+		@if ($notes-placement =="bottom-of-page") {
 			-daisy-flow: footnotes;
-		} @else {
+		}
+
+		@else {
 			-daisy-flow: endnotes;
 		}
 	}
@@ -1153,6 +1212,7 @@ a[epub|type~="noteref"] {
 @if ($include-notes) {
 	@page notes {
 		margin-left: 0;
+
 		@if $show-braille-page-numbers {
 			@bottom-center {
 				content: counter(page);
@@ -1164,9 +1224,10 @@ a[epub|type~="noteref"] {
 		@include noteref(href);
 	}
 
-	@if ($notes-placement == "bottom-of-page") {
+	@if ($notes-placement =="bottom-of-page") {
 		@page {
-			@footnotes { // @-daisy-footnotes
+			@footnotes {
+				// @-daisy-footnotes
 				content: -daisy-flow(footnotes, page);
 				max-height: 15;
 				-daisy-border-top: ⠤;
@@ -1174,35 +1235,42 @@ a[epub|type~="noteref"] {
 				-obfl-fallback-collection: endnotes;
 			}
 		}
+
 		.notes-placement {
 			-obfl-use-when-collection-not-empty: footnotes;
 		}
+
 		.notes-placement-fallback {
 			-obfl-use-when-collection-not-empty: endnotes;
 		}
-	} @else if ($notes-placement == "end-of-book") {
+	}
+
+	@else if ($notes-placement =="end-of-book") {
 		html {
+
 			&:has(noteref)::after,
 			&:has(a[epub|type~="noteref"])::after {
 				&::before {
 					@include endnotes-title;
 					page-break-before: right;
 				}
+
 				content: -daisy-flow(endnotes, document);
 			}
 		}
 	}
-	@if ($notes-placement == "bottom-of-page" or $notes-placement == "end-of-volume") {
+
+	@if ($notes-placement =="bottom-of-page" or $notes-placement =="end-of-volume") {
 		html {
 			&:has(noteref, a[epub|type~="noteref"])::alternate {
 				@include endnotes-title;
 				-daisy-flow: endnotes-title;
 			}
 		}
+
 		@-daisy-volume {
 			@end {
-				content: -daisy-flow(endnotes-title, document)
-				         -daisy-flow(endnotes, volume);
+				content: -daisy-flow(endnotes-title, document) -daisy-flow(endnotes, volume);
 				page: notes;
 			}
 		}
