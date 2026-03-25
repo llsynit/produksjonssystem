@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+from asyncio.log import logger
 import os
 import shutil
 import subprocess
@@ -11,7 +12,7 @@ import logging
 from pathlib import Path
 import traceback
 import requests
-
+import ast
 
 from lxml import etree
 from bs4 import BeautifulSoup
@@ -22,6 +23,8 @@ from core.utils.epub import Epub
 from core.utils.xslt import Xslt
 from core.utils.metadata import Metadata
 from core.utils.filesystem import Filesystem
+from core.NG20.convert import convert_ng2020
+#from produksjonssystem.core.config import Config
 
 if sys.version_info[0] != 3 or sys.version_info[1] < 5:
     print("# This script requires Python version 3.5+")
@@ -34,6 +37,12 @@ class NordicToNlbpub(Pipeline):
     labels = ["EPUB", "Lydbok", "Punktskrift", "e-bok", "Statped"]
     publication_format = None
     expected_processing_time = 2000
+
+
+    NG_2015_XHTML_STABLE = ast.literal_eval(os.getenv("NG_2015_XHTML_STABLE", "(('1.11.1-SNAPSHOT', '1.3.0'),)"))
+    NG_2015_XHTML_TEST = ast.literal_eval(os.getenv("NG_2015_XHTML_TEST", "(('1.11.1-SNAPSHOT', '1.3.0'),)"))
+
+
 
     def on_book_deleted(self):
         self.utils.report.info("Slettet bok i mappa: " + self.book['name'])
@@ -50,47 +59,55 @@ class NordicToNlbpub(Pipeline):
 
     def on_book(self):
 
-        def set_insert_metadata(temp_epubdir, status):
-            self.utils.report.info("Legger til metadata fra API i boken")
+        self.utils.report.info (".env Nordic EPUB Validator versions:")
+        self.utils.report.info (f"NG_2015_STABLE: {self.NG_2015_XHTML_STABLE}")
+        self.utils.report.info (f"NG_2015_TEST: {self.NG_2015_XHTML_TEST}")
 
-            xhtml_file = epub.identifier() + ".xhtml"
-            xhtml_file_path = os.path.normpath(os.path.join(temp_epubdir, "EPUB", xhtml_file))
-            self.utils.report.info("xhtml_file_path: " + xhtml_file_path)
+        def get_guidelines_from_opf(epub_folder):
+            # epub = Epub(logger, epub_file)
+            # epub_folder = epub_file.asDir()
+            self.utils.report.info(f"epub_folder: {epub_folder}")
+            meta_name_content = None
+            meta_name = None
+            # Read the package.opf file to determine the guidelines version
 
-            if os.path.exists(xhtml_file_path):
-                try:
-                    parser = etree.XMLParser(remove_blank_text=True, recover=True)
-                    with open(xhtml_file_path, 'r', encoding='utf-8') as file:
-                        tree = etree.parse(file, parser)
+            opf_path = None
+            for root, _, files in os.walk(epub_folder):
+                if "package.opf" in files:
+                    opf_path = Path(root) / "package.opf"
+                    break
 
-                    root = tree.getroot()
-                    self.utils.report.info(etree.tostring(root, pretty_print=True, encoding="unicode"))
+            if not opf_path:
+                self.utils.report.error(f"package.opf not found under {epub_folder}")
+                return False
 
-                    # Create new meta tag
-                    new_meta = etree.Element("meta", attrib={"name": "nlbprod:metadata.inserted", "content": status})
+            try:
 
-                    # Look for <title> or <meta charset="utf-8">
-                    title_tag = root.find(".//title")
-                    if title_tag is not None:
-                        self.utils.report.info("Title tag found. Inserting metadata after title...")
-                        title_tag.addnext(new_meta)
-                    else:
-                        charset_meta = root.find('.//meta[@charset="utf-8"]')
-                        if charset_meta is not None:
-                            self.utils.report.info("Charset meta tag found. Inserting metadata after it...")
-                            charset_meta.addnext(new_meta)
-                        else:
-                            self.utils.report.warn("Neither title tag nor charset meta tag found. Skipping metadata insertion.")
-                            return
-                    with open(xhtml_file_path, 'wb') as file:
-                        file.write(etree.tostring(tree, pretty_print=True, encoding='utf-8', xml_declaration=True))
+                xml_content = opf_path.read_text(encoding='utf-8')
+                soup = BeautifulSoup(xml_content, 'xml')  # Use 'xml' parser
 
-                    self.utils.report.info("Metadata from API successfully inserted into the book.")
+                # Extract content with property 'nordic:guidelines'
+                meta_property = soup.find("meta", property="nordic:guidelines")
+                meta_property_content = meta_property.text if meta_property else None
+                self.utils.report.info(
+                    f"Content of meta with property 'nordic:guidelines': {meta_property_content}")
 
-                except Exception as e:
-                    self.utils.report.error(f"Error processing XHTML file: {e}")
-            self.utils.report.warning("Finner ikke xhtml-fil for å legge til metadata.")
+                # Extract single content with name 'nordic:guidelines'
+                meta_name = soup.find("meta", attrs={"name": "nordic:guidelines"})
+                meta_name_content = meta_name['content'] if meta_name and "content" in meta_name.attrs else None
+                self.utils.report.info(
+                    f"Content of meta with name 'nordic:guidelines': {meta_name_content}")
 
+            except Exception as e:
+                self.utils.report.error(f"Error reading {opf_path}: {e}")
+                return False
+
+            if (meta_property_content is not None and meta_property_content == "2020-1") or (meta_name_content is not None and meta_name_content == "2020-1"):
+                self.utils.report.info("Using 2020-1 guidelines")
+                return "2020-1"
+            else:
+                self.utils.report.info("Using 2015-1 guidelines")
+            return "2015-1"
 
         self.utils.report.attachment(None, self.book["source"], "DEBUG")
         epub = Epub(self.utils.report, self.book["source"])
@@ -119,74 +136,33 @@ class NordicToNlbpub(Pipeline):
         meta_name_content = None
         meta_name = None
         # Read the package.opf file to determine the guidelines version
-        opf_path = Path(self.book["source"]).parent / epub.identifier() / "EPUB" / "package.opf"
-        try:
-
-            if not opf_path.exists():
-                self.utils.report.error(f"Error: OPF file not found at {opf_path}")
-                return False
-            xml_content = opf_path.read_text(encoding='utf-8')
-            soup = BeautifulSoup(xml_content, 'xml')  # Use 'xml' parser
-
-            # Extract content with property 'nordic:guidelines'
-            meta_property = soup.find("meta", property="nordic:guidelines")
-            meta_property_content = meta_property.text if meta_property else None
-            self.utils.report.info("Content of meta with property 'nordic:guidelines':", meta_property_content)
-
-            # Extract single content with name 'nordic:guidelines'
-            meta_name = soup.find("meta", attrs={"name": "nordic:guidelines"})
-            meta_name_content = meta_name['content'] if meta_name and "content" in meta_name.attrs else None
-            self.utils.report.info("Content of meta with name 'nordic:guidelines':", meta_name_content)
-
-        except Exception as e:
-            self.utils.report.error(f"Error reading {opf_path}: {e}")
+    
+        guidelines_year = get_guidelines_from_opf(epub.asDir())
         #TODO:        # refactor to use the same mechanism to save the files.
-        if (meta_property_content is not None and meta_property_content=="2020-1") or (meta_name_content is not None and meta_name_content=="2020-1"):
+        if guidelines_year == "2020-1":
             self.utils.report.info("EPUB har nordic guidelines 2020-1.")
             self.utils.report.info("Konverterer fra Nordisk EPUB 3 til NLBPUB med python skript...")
-            success = False
-            try:
-                command = ["src/run.py", self.book["source"], html_dir, "--add-header-element=false"]
+            
+            # --fix-heading-levels=true|false (default: true): sets h1-h6 based on depth in navigation document
+            # --add-header-element=true|false (default: true): adds a <header> element at the top (maps to DTBook doctitle/docauthor)
+            # "--add-header-element=false"
 
-                epub_to_html_home = os.getenv("EPUB_TO_HTML_HOME")
-                if not epub_to_html_home:
-                    self.utils.report.warning("EPUB_TO_HTML_HOME is not set. Using default value: /opt/nordic-epub3-dtbook-migrator")
-                    epub_to_html_home = "/opt/nordic-epub3-dtbook-migrator"
-
-                process = Filesystem.run_static(command, epub_to_html_home, self.utils.report)
-                success = process.returncode == 0
-
-            except subprocess.TimeoutExpired:
-                self.utils.report.error("Epubcheck for {} took too long and were therefore stopped.".format(os.path.basename(self.book["source"])))
-
-            except Exception:
-                self.utils.report.debug(traceback.format_exc(), preformatted=True)
-                self.utils.report.error("An error occured while running EPUB to HTML (for " + str(self.book["source"]) + ")")
-
-            if not success:
-                self.utils.report.error("Klarte ikke å konvertere boken")
+            status, output = convert_ng2020(
+                self.book["source"], html_dir, fix_heading_levels=True, add_header_element=False)
+            if not status:
+                self.utils.report.error("Klarte ikke å konvertere boken med  Nordisk EPUB 3 til NLBPUB med python skript")
+                self.utils.report.title = self.title + ": " + epub.identifier() + " ble ikke konvertert 👎😭" + epubTitle
                 return False
 
-            self.utils.report.debug("Output directory contains: " + str(os.listdir(html_dir)))
-            html_dir = os.path.join(html_dir, epub.identifier())
+            self.utils.report.debug("Output directory contains: " + str(os.listdir(output)))
+            #html_dir = os.path.join(output, epub.identifier())
 
-            if not os.path.isdir(html_dir):
-                self.utils.report.error("Finner ikke den konverterte boken: {}".format(html_dir))
+            if not os.path.isdir(output):
+                self.utils.report.error("Finner ikke den konverterte boken: {}".format(output))
                 return False
-
-
-            #insert_metadata(html_dir)
-            temp_epub_html = Epub(self.utils.report, html_dir)
-            is_valid = Metadata.insert_metadata(self.utils.report, temp_epub_html, publication_format="EPUB", report_metadata_errors=False)
-            if is_valid:
-                self.utils.report.info("Bibliofil-metadata var valide...")
-                set_insert_metadata(html_dir, "true")
-            else:
-                set_insert_metadata(html_dir, "false")
-                self.utils.report.warning("Bibliofil-metadata var ikke valide. .")
 
             self.utils.report.info("Boken ble konvertert. Kopierer til NLBPUB-arkiv.")
-            archived_path, _ = self.utils.filesystem.storeBook(html_dir, epub.identifier(), overwrite=self.overwrite)
+            archived_path, _ = self.utils.filesystem.storeBook(output, epub.identifier(), overwrite=self.overwrite)
             self.utils.report.attachment(None, archived_path, "DEBUG")
             self.utils.report.title = self.title + ": " + epub.identifier() + " ble konvertert 👍😄" + epubTitle
             return True
@@ -250,17 +226,19 @@ class NordicToNlbpub(Pipeline):
             self.utils.report.info("Zipper oppdatert versjon av EPUBen...")
             temp_epub.asFile(rebuild=True)
 
+            """version = [("1.13.6", "1.4.6"),
+                                    ("1.13.4", "1.4.5"),
+                                    ("1.12.1", "1.4.2"),
+                                    ("1.11.1-SNAPSHOT", "1.3.0"),
+                                ]"""
+            version = [*self.NG_2015_XHTML_STABLE, *self.NG_2015_XHTML_TEST]
+
             self.utils.report.info("Konverterer fra Nordisk EPUB 3 til Nordisk HTML 5...")
             epub_file = temp_epub.asFile()
             with DaisyPipelineJob(self,
                                 "nordic-epub3-to-html",
                                 {"epub": os.path.basename(epub_file), "fail-on-error": "false"},
-                                pipeline_and_script_version=[
-                                    ("1.13.6", "1.4.6"),
-                                    ("1.13.4", "1.4.5"),
-                                    ("1.12.1", "1.4.2"),
-                                    ("1.11.1-SNAPSHOT", "1.3.0"),
-                                ],
+                                pipeline_and_script_version=version,
                                 context={
                                     os.path.basename(epub_file): epub_file
                                 }) as dp2_job_convert:
@@ -328,13 +306,13 @@ class NordicToNlbpub(Pipeline):
             nlbpub.update_prefixes()
 
 
-            is_valid = Metadata.insert_metadata(self.utils.report, nlbpub, publication_format="EPUB", report_metadata_errors=False)
-            if is_valid:
-                self.utils.report.info("Bibliofil-metadata var valide...")
-                set_insert_metadata(nlbpub.asDir(), "true")
-            else:
-                set_insert_metadata(nlbpub.asDir(), "false")
-                self.utils.report.warning("Bibliofil-metadata var ikke valide. .")
+            #is_valid = Metadata.insert_metadata(self.utils.report, nlbpub, publication_format="EPUB", report_metadata_errors=False)
+            #if is_valid:
+            #    self.utils.report.info("Bibliofil-metadata var valide...")
+            #    set_insert_metadata(nlbpub.asDir(), "true")
+            #else:
+            #    set_insert_metadata(nlbpub.asDir(), "false")
+            #    self.utils.report.warning("Bibliofil-metadata var ikke valide. .")
 
             self.utils.report.info("Boken ble konvertert. Kopierer til NLBPUB-arkiv.")
             archived_path, stored = self.utils.filesystem.storeBook(nlbpub.asDir(), temp_epub.identifier(), overwrite=self.overwrite)
