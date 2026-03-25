@@ -1,0 +1,58 @@
+# Git
+.git
+.gitignore
+
+# Docker
+.dockerignore
+Dockerfile
+docker-compose.yml
+docker-compose.yml.example
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Environments
+.env
+venv/
+env/
+
+# IDEs / editors
+.vscode/
+.idea/
+*.swp
+*.swo
+.ropeproject
+
+# OS files
+.DS_Store
+
+# Tests
+test/
+tests/
+test.sh
+test_system.sh
+test_unit.sh
+test_xspec.sh
+*.log
+
+# Documentation and Media
+docs/
+example/
+README.md
+SHARED_PRODUCTION_STEPS.md
+dashboard-demo.gif
+gitkraken-pull-rebase.png
+
+# Build / Config / CI
+config.env.example
+set-test-env.sh.example
+generate-requirements.sh
+pylama.ini
+Jenkinsfile
+
+# Note: epubcheck-5.3.0 is a large folder but cannot be ignored here because
+# it is explicitly copied by `COPY epubcheck-5.3.0 /opt/epubcheck` in the Dockerfile
+# prior to `COPY . /usr/src/app`. Ignoring it would break the Dockerfile build.epubcheck-5.3.0/
