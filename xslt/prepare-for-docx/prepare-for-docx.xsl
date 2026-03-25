@@ -588,13 +588,15 @@
          numerals-->
          <!--removed
          frontmatter and preface from template below. It removes the sections completely-->
+
+         <!--12.03.2026 removed index from template below-->
          <xsl:apply-templates
-            select="* except section[f:types(.) = ('toc', 'backmatter', 'index', 'colophon', 'titlepage','cover')]" />
+            select="* except section[f:types(.) = ('toc', 'backmatter', 'colophon', 'titlepage','cover')]" />
          <p />
          <p>
       Ettertekst:</p>
          <xsl:apply-templates
-            select="section[f:types(.) = 'backmatter' and not(f:types(.) = 'index' or f:types(.) = 'colophon')]" />
+            select="section[f:types(.) = 'backmatter' and not(f:types(.) = 'colophon')]" />
          <p />
          <p>
       Kolofon:</p>
