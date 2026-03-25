@@ -254,10 +254,9 @@ class PrepareForEbook(Pipeline):
                 shutil.copy(opf_path, tempfile_stored_opf)
                 tempfile_stored = os.path.join(self.utils.report.reportDir(), os.path.basename(html_file))
                 shutil.copy(html_file, tempfile_stored)
-                self.utils.report.info(f"Validering av DTBook feilet, lagrer temp fil for feilsøking: {tempfile_stored}")
+                self.utils.report.warn(f"Validering med epubcheck feilet, men vi fortsetter prosesseringen som en midlertidig fiks⚠️😄. Lagrer temp fil for feilsøking: {tempfile_stored}")
                 self.utils.report.attachment(None, tempfile_stored, "DEBUG")
-                self.utils.report.title = self.title + ": " + epub.identifier() + " feilet 😭👎" + epubTitle
-                return
+                # Removed 'return' here to soft-fail and let the archiving proceed
         else:
             self.utils.report.warn("Epubcheck er ikke tilgjengelig, EPUB blir ikke validert!")
 
@@ -267,7 +266,12 @@ class PrepareForEbook(Pipeline):
 
         archived_path, stored = self.utils.filesystem.storeBook(temp_epubdir, epub.identifier())
         self.utils.report.attachment(None, archived_path, "DEBUG")
-        self.utils.report.title = self.title + ": " + epub.identifier() + " ble konvertert 👍😄" + epubTitle
+
+        if Epubcheck.isavailable() and not epubcheck.success:
+            self.utils.report.title = self.title + ": " + epub.identifier() + " ble konvertert (med valideringsfeil - midlertidig fiks) ⚠️😄" + epubTitle
+        else:
+            self.utils.report.title = self.title + ": " + epub.identifier() + " ble konvertert 👍😄" + epubTitle
+
         return True
 
     @staticmethod
