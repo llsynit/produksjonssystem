@@ -20,6 +20,7 @@ def health():
     memory_used = process.memory_info().rss
     head["memory_used"] = memory_used
     head["memory_used_human_readable"] = human_readable_bytes(memory_used)
+    head["version"] = os.getenv("PRODSYS_VERSION", "unknown")
 
     healthy = False
     if Config.get("system.shouldRun", False):

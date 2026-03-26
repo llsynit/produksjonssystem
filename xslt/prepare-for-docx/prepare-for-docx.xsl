@@ -189,10 +189,10 @@
                ',
                $max-page-number)" />-->
                <!-- use title instead of the page-number if it contains hypen as the original-->
+               <!-- book standard Sidetall (4.12) -->
                <xsl:value-of
                   select="concat('--- ',
-            if (contains($title, '-')) then $title else $page-number,
-            ' til ', $max-page-number)" />
+            if (contains($title, '-')) then $title else $page-number)" />
             </div>
          </xsl:when>
          <xsl:when test="$isRomanNumeral">
@@ -202,10 +202,10 @@
                <!-- <xsl:value-of select="concat('replacewithhypenhypenhypen ', $page-number, ' til
                ',
                $max-page-number)" />-->
+               <!-- book standard Sidetall (4.12) -->
                <xsl:value-of
                   select="concat('--- ',
-            if (contains($title, '-')) then $title else $page-number,
-            ' til ', $max-page-number)" />
+            if (contains($title, '-')) then $title else $page-number)" />
             </div>
          </xsl:when>
       </xsl:choose>
@@ -588,13 +588,15 @@
          numerals-->
          <!--removed
          frontmatter and preface from template below. It removes the sections completely-->
+
+         <!--12.03.2026 removed index from template below-->
          <xsl:apply-templates
-            select="* except section[f:types(.) = ('toc', 'backmatter', 'index', 'colophon', 'titlepage','cover')]" />
+            select="* except section[f:types(.) = ('toc', 'backmatter', 'colophon', 'titlepage','cover')]" />
          <p />
          <p>
       Ettertekst:</p>
          <xsl:apply-templates
-            select="section[f:types(.) = 'backmatter' and not(f:types(.) = 'index' or f:types(.) = 'colophon')]" />
+            select="section[f:types(.) = 'backmatter' and not(f:types(.) = 'colophon')]" />
          <p />
          <p>
       Kolofon:</p>

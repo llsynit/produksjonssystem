@@ -28,7 +28,9 @@
                 </_>
             </xsl:variable>
             <xsl:variable name="prefixes" as="element()*">
-                <xsl:for-each select="$namespaces/@*">
+                <!-- Exclude reserved EPUB 3 prefixes like 'dc' and 'dcterms' from epub:prefix 
+                     to avoid ERROR(OPF-007c) in content documents -->
+                <xsl:for-each select="$namespaces/@*[not(local-name() = ('dc', 'dcterms'))]">
                     <_>
                         <xsl:value-of select="concat(name(), ': ', .)"/>
                     </_>
@@ -44,7 +46,14 @@
     
     <!-- Package document -->
     <xsl:template match="/opf:package">
-        <xsl:copy exclude-result-prefixes="#all">
+        <!-- FROM: -->
+       <!--<xsl:copy exclude-result-prefixes="#all">-->
+
+        <!-- TO: -->
+        <xsl:copy>            <!-- EPUB 3 strictly prohibits dc/dcterms in the prefix attribute,
+                 so we ensure they are always present as xmlns declarations on the root element. -->
+            <xsl:namespace name="dc" select="'http://purl.org/dc/elements/1.1/'"/>
+            <xsl:namespace name="dcterms" select="'http://purl.org/dc/terms/'"/>
             <xsl:copy-of select="@* except @prefix" exclude-result-prefixes="#all"/>
             <xsl:variable name="namespaces" as="element()">
                 <_>
@@ -52,7 +61,12 @@
                 </_>
             </xsl:variable>
             <xsl:variable name="prefixes" as="element()*">
-                <xsl:for-each select="$namespaces/@*">
+                <!-- 
+                  Exclude reserved EPUB 3 prefixes like 'dc' and 'dcterms' from being 
+                  explicitly declared in the OPF <package prefix="..."> attribute.
+                  Declaring them explicitly will cause epubcheck to emit an ERROR(OPF-007c).
+                -->
+                <xsl:for-each select="$namespaces/@*[not(local-name() = ('dc'))]">
                     <_>
                         <xsl:value-of select="concat(name(), ': ', .)"/>
                     </_>
@@ -100,7 +114,9 @@
         <xsl:param name="prefix" as="xs:string"/>
         <xsl:param name="context" as="element()"/>
         <xsl:variable name="existing-prefixes" select="string-join(($context/ancestor-or-self::*/(@epub:prefix, @prefix)), ' ')" as="xs:string"/>
+        <!-- Lookup for known prefixes, including 'dc' to avoid Unknown Namespace Warnings during EPUB conversions -->
         <xsl:sequence select="if ($prefix = 'nordic') then 'http://www.mtm.se/epub/' else
+                              if ($prefix = 'dc') then 'http://purl.org/dc/elements/1.1/' else
                               if ($prefix = 'z3998') then 'http://www.daisy.org/z3998/2012/vocab/structure/#' else
                               if ($prefix = 'a11y') then 'http://www.idpf.org/epub/vocab/package/a11y/#' else
                               if ($prefix = 'msv') then 'http://www.idpf.org/epub/vocab/structure/magazine/#' else

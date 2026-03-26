@@ -532,6 +532,15 @@ class Report():
         if content:
             if isinstance(content, list):
                 content = "\n".join(content)
+            
+            if path.lower().endswith(".txt"):
+                version = os.getenv("PRODSYS_VERSION", "unknown")
+                content = (
+                    "--------------------------------------------------------------------------------\n"
+                    f"Produsert av produksjonssystemet, versjon: {version}\n"
+                    "--------------------------------------------------------------------------------\n\n"
+                ) + content
+
             with open(path, "a") as f:
                 f.write(content)
         if severity == "DEBUG":

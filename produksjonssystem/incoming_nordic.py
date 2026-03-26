@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import ast
 import json
 import os
 import shutil
@@ -8,10 +9,12 @@ import subprocess
 import sys
 import tempfile
 import traceback
-
+from pathlib import Path
 from lxml import etree as ElementTree
 import xml.etree.ElementTree as ET
+import ast
 
+from bs4 import BeautifulSoup
 
 from core.pipeline import Pipeline
 from core.utils.daisy_pipeline import DaisyPipelineJob
@@ -20,9 +23,15 @@ from core.utils.filesystem import Filesystem
 from core.utils.mathml_to_text import Mathml_validator
 from core.utils.xslt import Xslt
 
+
+from dotenv import load_dotenv
+load_dotenv()
+
 if sys.version_info[0] != 3 or sys.version_info[1] < 5:
     print("# This script requires Python version 3.5+")
     sys.exit(1)
+
+
 
 
 class IncomingNordic(Pipeline):
@@ -31,8 +40,12 @@ class IncomingNordic(Pipeline):
     labels = ["EPUB", "Statped"]
     publication_format = None
     expected_processing_time = 1400
-
     ace_cli = None
+
+    NG_2020_VALIDATOR_STABLE = ast.literal_eval(os.getenv("NG_2020_VALIDATOR_STABLE", "(('1.14.3', '1.5.2-SNAPSHOT'),)"))
+    NG_2020_VALIDATOR_TEST = ast.literal_eval(os.getenv("NG_2020_VALIDATOR_TEST", "(('1.14.3', '1.5.2-SNAPSHOT'),)"))
+    NG_2015_VALIDATOR_STABLE = ast.literal_eval(os.getenv("NG_2015_VALIDATOR_STABLE", "(('1.11.1-SNAPSHOT', '1.3.0'),)"))
+    NG_2015_VALIDATOR_TEST = ast.literal_eval(os.getenv("NG_2015_VALIDATOR_TEST", "(('1.11.1-SNAPSHOT', '1.3.0'),)"))
 
     @staticmethod
     def init_environment():
@@ -60,6 +73,11 @@ class IncomingNordic(Pipeline):
         return self.on_book()
 
     def on_book(self):
+        self.utils.report.info (".env Nordic EPUB Validator versions:")
+        self.utils.report.info (f"NG_2020_VALIDATOR_STABLE: {self.NG_2020_VALIDATOR_STABLE}")
+        self.utils.report.info (f"NG_2020_VALIDATOR_TEST: {self.NG_2020_VALIDATOR_TEST}")
+        self.utils.report.info (f"NG_2015_VALIDATOR_STABLE: {self.NG_2015_VALIDATOR_STABLE}")
+        self.utils.report.info (f"NG_2015_VALIDATOR_TEST: {self.NG_2015_VALIDATOR_TEST}")
         epub = Epub(self.utils.report, self.book["source"])
         epubTitle = ""
         try:
@@ -75,6 +93,52 @@ class IncomingNordic(Pipeline):
             self.utils.report.error(self.book["name"] + ": Klarte ikke å bestemme boknummer basert på dc:identifier.")
             self.utils.report.title = self.title + ": " + self.book["name"] + " feilet 😭👎" + epubTitle
             return
+
+        def get_guidelines_from_opf(epub_folder):
+            # epub = Epub(logger, epub_file)
+            # epub_folder = epub_file.asDir()
+            self.utils.report.info(f"epub_folder: {epub_folder}")
+            meta_name_content = None
+            meta_name = None
+            # Read the package.opf file to determine the guidelines version
+
+            opf_path = None
+            for root, _, files in os.walk(epub_folder):
+                if "package.opf" in files:
+                    opf_path = Path(root) / "package.opf"
+                    break
+
+            if not opf_path:
+                self.utils.report.error(f"package.opf not found under {epub_folder}")
+                return False
+
+            try:
+
+                xml_content = opf_path.read_text(encoding='utf-8')
+                soup = BeautifulSoup(xml_content, 'xml')  # Use 'xml' parser
+
+                # Extract content with property 'nordic:guidelines'
+                meta_property = soup.find("meta", property="nordic:guidelines")
+                meta_property_content = meta_property.text if meta_property else None
+                self.utils.report.info(
+                    f"Content of meta with property 'nordic:guidelines': {meta_property_content}")
+
+                # Extract single content with name 'nordic:guidelines'
+                meta_name = soup.find("meta", attrs={"name": "nordic:guidelines"})
+                meta_name_content = meta_name['content'] if meta_name and "content" in meta_name.attrs else None
+                self.utils.report.info(
+                    f"Content of meta with name 'nordic:guidelines': {meta_name_content}")
+
+            except Exception as e:
+                self.utils.report.error(f"Error reading {opf_path}: {e}")
+                return False
+
+            if (meta_property_content is not None and meta_property_content == "2020-1") or (meta_name_content is not None and meta_name_content == "2020-1"):
+                self.utils.report.info("Using 2020-1 guidelines")
+                return "2020-1"
+            else:
+                self.utils.report.info("Using 2015-1 guidelines")
+            return "2015-1"
 
         # Function to process attributes based on XSLT logic
         def process_attribute(value):
@@ -206,21 +270,32 @@ class IncomingNordic(Pipeline):
             shutil.copy(os.path.join(Xslt.xslt_dir, IncomingNordic.uid, "reference-files", "demobilde.jpg"),
                         os.path.join(temp_noimages_epubdir, "EPUB", "images", "dummy.jpg"))
 
+        version = None
+        guidelines_year = get_guidelines_from_opf(epub.asDir())
+        if guidelines_year == "2020-1":
+            version = [*self.NG_2020_VALIDATOR_STABLE, *self.NG_2020_VALIDATOR_TEST]
+        elif guidelines_year == "2015-1":
+            version = [*self.NG_2015_VALIDATOR_STABLE, *self.NG_2015_VALIDATOR_TEST]
+        else:
+            self.utils.report.error(
+                f"Ukjent eller manglende nordic:guidelines i package.opf: {guidelines_year}")
+            return False
+        self.utils.report.info(f"Bruker PIP versjoner: {version}")
+        """version = [("1.14.3", "1.5.2-SNAPSHOT"), #added 08.04.24 validate with Nordic EPUB3/DTBook Migrator. The Nordic EPUB3 Validator script can validate according to both 2015-1 and 2020-1 rulesets. Which ruleset will be applied is determined by the value of the <meta property="nordic:guidelines"> element in package.opf.
+                                ("1.13.6", "1.4.6"),
+                                ("1.13.4", "1.4.5"),
+                                ("1.12.1", "1.4.2"),
+                                ("1.11.1-SNAPSHOT", "1.3.0"),
+                              ],"""
+        
         temp_noimages_epub = Epub(self.utils.report, temp_noimages_epubdir)
-
         self.utils.report.info("Validerer EPUB med epubcheck og nordiske retningslinjer...")
         epub_noimages_file = temp_noimages_epub.asFile()
         with DaisyPipelineJob(self,
                               "nordic-epub3-validate",
                               {"epub": os.path.basename(epub_noimages_file)},
                               priority="high",
-                              pipeline_and_script_version=[
-                                ("1.14.3", "1.5.2-SNAPSHOT"), #added 08.04.24 validate with Nordic EPUB3/DTBook Migrator. The Nordic EPUB3 Validator script can validate according to both 2015-1 and 2020-1 rulesets. Which ruleset will be applied is determined by the value of the <meta property="nordic:guidelines"> element in package.opf.
-                                ("1.13.6", "1.4.6"),
-                                ("1.13.4", "1.4.5"),
-                                ("1.12.1", "1.4.2"),
-                                ("1.11.1-SNAPSHOT", "1.3.0"),
-                              ],
+                              pipeline_and_script_version=version,
                               context={
                                 os.path.basename(epub_noimages_file): epub_noimages_file
                               }) as dp2_job:
@@ -270,7 +345,16 @@ class IncomingNordic(Pipeline):
         try:
             self.utils.report.info("Genererer ACE-rapport...")
             ace_dir = os.path.join(self.utils.report.reportDir(), "accessibility-report")
-            process = self.utils.filesystem.run([IncomingNordic.ace_cli, "-o", ace_dir, epub_fixed.asFile()])
+            
+            # Electron/Chromium requires --no-sandbox when running as root in Docker
+            # Headless execution also requires xvfb-run if building/running on clean linux Docker images
+            cmd = []
+            if shutil.which("xvfb-run"):
+                cmd.append("xvfb-run")
+            cmd.extend([IncomingNordic.ace_cli, "-o", ace_dir, "--no-sandbox", epub_fixed.asFile()])
+            
+            process = self.utils.filesystem.run(cmd)
+            
             if process.returncode == 0:
                 self.utils.report.info("ACE-rapporten ble generert.")
             else:

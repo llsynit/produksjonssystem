@@ -1,5 +1,5 @@
 FROM ubuntu:22.04
-RUN apt-get update && apt-get clean
+RUN apt-get update && apt-get clean && rm -rf /var/lib/apt/lists/*
 #RUN apt-get clean
 #Java
 #RUN apt-get update && apt-get install -y openjdk-8-jdk
@@ -9,11 +9,12 @@ RUN apt-get update && apt-get clean
 
 #RUN apt-get install -y build-essential
 #RUN apt-get -y install build-essential curl gnupg wget
-RUN apt-get -y update && apt-get install -y build-essential curl gnupg wget python-is-python3 python3-pip python3-distutils python3-dev libffi-dev  xdg-utils libegl1 libopengl0 &&\
+RUN apt-get -y update && apt-get install -y build-essential curl gnupg wget python-is-python3 python3-pip python3-distutils python3-dev libffi-dev xdg-utils libegl1 libopengl0 unzip xvfb &&\
   pip install setuptools --upgrade &&\
   pip install cryptography &&\
   apt-get install nano -y &&\
-  apt-get install -y openjdk-8-jdk
+  apt-get install -y openjdk-8-jdk &&\
+  rm -rf /var/lib/apt/lists/*
 
 #RUN pip install cryptography
 
@@ -23,17 +24,19 @@ ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD true
 RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - &&\
 #RUN curl -sL https://deb.nodesource.com/setup_16.x | bash - &&\
   apt-get install -y nodejs &&\
-  npm install @daisy/ace -g
+  npm install @daisy/ace -g &&\
+  rm -rf /var/lib/apt/lists/*
 
 
 #RUN wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | sh /dev/stdin
 #VERSION  7.1.0. fails to install
 RUN  wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | sh /dev/stdin version=6.26.0
 
-RUN apt-get install -qy cabextract xfonts-utils &&\
+RUN apt-get update && apt-get install -qy cabextract xfonts-utils &&\
   wget http://ftp.de.debian.org/debian/pool/contrib/m/msttcorefonts/ttf-mscorefonts-installer_3.8.1_all.deb &&\
   dpkg -i ttf-mscorefonts-installer_3.8.1_all.deb &&\
-  apt-get install -y graphviz libavcodec-extra ffmpeg libxml2-dev libxslt1-dev
+  apt-get install -y graphviz libavcodec-extra ffmpeg libxml2-dev libxslt1-dev &&\
+  rm -rf /var/lib/apt/lists/*
 
 
 #RUN apt-get install -y graphviz
@@ -43,7 +46,10 @@ RUN apt-get install -qy cabextract xfonts-utils &&\
 #RUN apt-get install -y libxml2-dev libxslt1-dev
 
 
-COPY epubcheck-5.3.0 /opt/epubcheck
+RUN wget -qO- https://github.com/w3c/epubcheck/releases/download/v5.3.0/epubcheck-5.3.0.zip > /tmp/epubcheck.zip && \
+    unzip -q /tmp/epubcheck.zip -d /opt && \
+    mv /opt/epubcheck-5.3.0 /opt/epubcheck && \
+    rm /tmp/epubcheck.zip
 COPY . /usr/src/app
 WORKDIR /usr/src/app
 
@@ -51,6 +57,8 @@ ENV TRIGGER_DIR="/tmp/trigger-produksjonssystem"
 ENV QUICKBASE_DUMP_DIR="/opt/quickbase"
 ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64/jre
 ENV EPUBCHECK_HOME="/opt/epubcheck"
+ARG PRODSYS_VERSION="latest"
+ENV PRODSYS_VERSION=${PRODSYS_VERSION}
 
 # Add HEALTHCHECK
 HEALTHCHECK --interval=30s --timeout=3s \
