@@ -303,6 +303,7 @@ class NlbpubToPef(Pipeline):
                 ("1.11.1-SNAPSHOT", "1.3.0"),
            ]"""
             pipeline_and_script_version = [
+                ("1.15.4-SNAPSHOT", "9.0.1-SNAPSHOT"), #added 12.01.25
                 ("1.14.17-p1", "6.2.0"), #added 26.04.24
                 ("1.14.17-p2-SNAPSHOT", "6.2.0"), #added 07.04.24
 
@@ -354,14 +355,15 @@ class NlbpubToPef(Pipeline):
                     "page-width": '38',
                     "page-height": '29',
                     "toc-depth": '2',
-                    "maximum-number-of-sheets": '50',
+                    #"maximum-number-of-sheets": '50',
                     "include-production-notes" : 'true',
                     "hyphenation" : 'none',
                     "include-preview": 'true',
                     "hyphenation-at-page-breaks" : 'except-at-volume-breaks',
                     "allow-volume-break-inside-leaf-section-factor" : '10',
                     "prefer-volume-break-before-higher-level-factor" : '1',
-                    "stylesheet-parameters": "(skip-margin-top-of-page:true)",
+                    #"stylesheet-parameters": "(skip-margin-top-of-page:true)",
+                    "stylesheet-parameters": "(skip-margin-top-of-page:true)(maximum-number-of-sheets:50)",
                 }
             else:
                 braille_arguments = braille_arguments_from_queue
