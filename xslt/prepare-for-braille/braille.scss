@@ -39,17 +39,13 @@ $include-em: true !default;
 		counter-increment: page;
 	}
 
-	.pef-titlepage {
-		page: auto;
-	}
-
 	/* Page style for title pages */
 	@page titlepage {
 		/* Count pages but hide them */
 		counter-increment: front;
 	}
 
-	.pef-titlepage::duplicate {
+	.pef-titlepage {
 		page: titlepage;
 	}
 
@@ -240,7 +236,7 @@ h1, h2, h3, h4, h5, h6 {
 
 @-daisy-volume:first {
 	@begin {
-		content: -daisy-flow(titlepage-first, document)
+		content: -daisy-flow(titlepage, document)
 		         -daisy-flow(document-toc, document)
 		         -daisy-flow(volume-toc, document)
 		         -daisy-flow(other-front, document);
@@ -256,6 +252,7 @@ h1, h2, h3, h4, h5, h6 {
 	margin-left: 1;
 	margin-right: 1;
 	hyphens: none;
+	-daisy-flow: titlepage;
 
 	& > p {
 		margin-top: 0;
@@ -263,16 +260,6 @@ h1, h2, h3, h4, h5, h6 {
 	}
 	& > .Høyre-justert {
 		text-align: right;
-	}
-
-	-daisy-flow: titlepage-first;
-	&::duplicate {
-		display: block;
-		margin-top: 0;
-		margin-left: 1;
-		margin-right: 1;
-		hyphens: none;
-		-daisy-flow: titlepage;
 	}
 }
 
@@ -407,7 +394,6 @@ h1[epub|type~="z3998:author"] {
 section,
 body:not([epub|type~="frontmatter"]),
 aside[epub|type~="sidebar"],
-aside[epub|type~="epigraph"],
 aside[epub|type~="z3998:production"],
 section[epub|type~="z3998:poem"],
 div[epub|type~="z3998:poem"],
@@ -449,7 +435,6 @@ sup {
 
 .uncontracted-letters,
 .pef-titlepage,
-.pef-titlepage::duplicate,
 h1 {
 	-daisy-text-transform: uncontracted;
 }
@@ -657,10 +642,6 @@ aside {
 		p:first-child:has(~ *) {
 			text-indent: 0;
 		}
-	}
-
-	&[epub|type~="epigraph"] {
-		text-indent: 2;
 	}
 
 	&[epub|type~="z3998:production"] {
