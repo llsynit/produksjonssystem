@@ -124,6 +124,66 @@ class NLBpubToDocx(Pipeline):
         shutil.copy(temp_xml_file, html_file)
 
 
+        grade = None
+        doc_title = ""
+        try:
+            parser = ElementTree.XMLParser(recover=True, encoding='utf-8')
+            tree = ElementTree.parse(html_file, parser=parser)
+            root = tree.getroot()
+
+            for p in root.xpath("//*[local-name()='p' and contains(concat(' ', normalize-space(@class), ' '), ' school-grade ')]"):
+                if 'data-grade' in p.attrib:
+                    grade_str = p.attrib['data-grade'].strip()
+                    if grade_str.isdigit():
+                        grade = int(grade_str)
+                # Remove the grade paragraph from the output document
+                parent = p.getparent()
+                if parent is not None:
+                    parent.remove(p)
+
+            for title in root.xpath("//*[local-name()='title']"):
+                if title.text:
+                    self.utils.report.info(f"Fant tittel: {title.text.strip()}")
+                    doc_title = title.text.strip()
+                    break
+
+            # book standard Overskrifter (uten xxx, med visuell stilmarkering) (4.1.1)
+            if grade is not None and grade > 7:
+                self.utils.report.info(f"Fant klassetrinn {grade}, fjerner 'xxx' fra overskrifter og innholdsfortegnelse.")
+                for idx in range(1, 7):
+                    for heading in root.xpath(f"//*[local-name()='h{idx}']"):
+                        if heading.text and re.match(r"^\s*xxx\d\s*", heading.text):
+                            heading.text = re.sub(r"^\s*xxx\d\s*", "", heading.text)
+
+                # Fjern xxx fra listeelementer i TOC
+                for li in root.xpath("//*[local-name()='li']"):
+                    if li.text and re.match(r"^\s*xxx\d\s*", li.text):
+                        self.utils.report.info(f"Fjerner 'xxx' fra listeelement: {li.text}")
+                        li.text = re.sub(r"^\s*xxx\d\s*", "", li.text)
+                    for span in li.xpath(".//*[local-name()='span']"):
+                        if span.text and re.match(r"^\s*xxx\d\s*", span.text):
+                            self.utils.report.info(f"Fjerner 'xxx' fra listeelement span: {span.text}")
+                            span.text = re.sub(r"^\s*xxx\d\s*", "", span.text)
+
+                # Fjern forklarende setning
+                for span in root.xpath("//*[local-name()='span']"):
+                    if span.text and "xxx innleder overskrifter" in span.text:
+                        self.utils.report.info(f"Fjerner forklarende setning: {span.text}")
+                        parent = span.getparent()
+                        if parent is not None and parent.tag.endswith('p'):
+                            parent.getparent().remove(parent)
+                        else:
+                            span.text = ""
+            elif grade is not None:
+                self.utils.report.info(f"Fant klassetrinn {grade}, beholder 'xxx' i overskrifter.")
+            else:
+                self.utils.report.info("Fant ingen klassetrinn (school-grade) i HTML.")
+
+            tree.write(html_file, encoding='utf-8', xml_declaration=True, method='xml')
+
+        except Exception as e:
+            self.utils.report.warn(f"Kunne ikke hente 'school-grade' eller 'title' fra HTML: {e}")
+
                 # ---------- konverter HTML-fila til DOCX ----------
 
         temp_docxdir_obj = tempfile.TemporaryDirectory()
@@ -323,6 +383,7 @@ class NLBpubToDocx(Pipeline):
                 #         pass
 
 
+
                 document.save(os.path.join(temp_docxdir, epub.identifier() + ".docx"))
                 self.utils.report.info("Temp-fil ble lagret: "+os.path.join(temp_docxdir, epub.identifier() + ".docx"))
 
@@ -343,6 +404,11 @@ class NLBpubToDocx(Pipeline):
 
                 writeFile(xmlText, zippedFile)
                 zipdir(str(folder / tempFolder), str(folder), os.path.join(temp_docxdir, epub.identifier() + ".docx"))
+
+                # book standard Filnavn (4.2)
+                if grade is not None and grade <= 7 and doc_title:
+                    safe_title = re.sub(r'[\\/*?:"<>|]', "", doc_title)
+                    shutil.copy(os.path.join(temp_docxdir, epub.identifier() + ".docx"), os.path.join(temp_docxdir, safe_title + ".docx"))
 
 # ---------- end script from kvile -------
 
