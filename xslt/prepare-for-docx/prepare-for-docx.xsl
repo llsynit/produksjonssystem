@@ -189,10 +189,10 @@
                ',
                $max-page-number)" />-->
                <!-- use title instead of the page-number if it contains hypen as the original-->
+               <!-- book standard Sidetall (4.12) -->
                <xsl:value-of
                   select="concat('--- ',
-            if (contains($title, '-')) then $title else $page-number,
-            ' til ', $max-page-number)" />
+            if (contains($title, '-')) then $title else $page-number)" />
             </div>
          </xsl:when>
          <xsl:when test="$isRomanNumeral">
@@ -202,10 +202,10 @@
                <!-- <xsl:value-of select="concat('replacewithhypenhypenhypen ', $page-number, ' til
                ',
                $max-page-number)" />-->
+               <!-- book standard Sidetall (4.12) -->
                <xsl:value-of
                   select="concat('--- ',
-            if (contains($title, '-')) then $title else $page-number,
-            ' til ', $max-page-number)" />
+            if (contains($title, '-')) then $title else $page-number)" />
             </div>
          </xsl:when>
       </xsl:choose>
