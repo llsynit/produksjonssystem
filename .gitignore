@@ -14,6 +14,8 @@ __pycache__
 *.pyc
 target
 *.swp
+*.msg
+*.html
 
 # XSpec
 **/xspec/*
