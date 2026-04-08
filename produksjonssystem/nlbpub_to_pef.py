@@ -113,7 +113,7 @@ def transfer_metadata_from_html_to_pef(html_file: str, pef_file: str,
         pef_meta.append(element)
 
     for (tagname, prefix, namespace, attribname, value) in additional_metadata:
-        element = ElementTree.Element("{" + namespace + "}" + tagname, attrib={"name": attribname}, nsmap={prefix: namespace})
+        element = ElementTree.Element("{" + namespace + "}" + tagname, nsmap={prefix: namespace})
         if attribname is not None:
             element.attrib["name"] = attribname
         element.text = value
@@ -172,7 +172,7 @@ class NlbpubToPef(Pipeline):
         html_xml = ElementTree.parse(html_file, parser=xml_parser).getroot()
         identifier = html_xml.xpath("/*/*[local-name()='head']/*[@name='dc:identifier']")
 
-
+        
         metadata = Metadata.get_metadata_from_book(self.utils.report, temp_htmldir)
 
         line_spacing = "single"

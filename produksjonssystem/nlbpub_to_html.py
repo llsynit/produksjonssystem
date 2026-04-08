@@ -87,6 +87,18 @@ class NlbpubToHtml(Pipeline):
             self.utils.report.title = self.title + ": " + self.book["name"] + " feilet 😭👎" + epubTitle
             return
 
+        # Remove p with class='school-grade'
+        xml_parser = ElementTree.XMLParser(encoding="utf-8")
+        html_xml = ElementTree.parse(html_file, parser=xml_parser)
+        elements_to_remove = html_xml.getroot().xpath("//*[local-name()='p' and @class='school-grade']")
+        if elements_to_remove:
+            for e in elements_to_remove:
+                self.utils.report.info("Fjerner p med class='school-grade': " + str(e.text or ""))
+                e.getparent().remove(e)
+            html_xml.write(html_file, method='XML', xml_declaration=True, encoding='UTF-8', pretty_print=False)
+        else:
+            self.utils.report.info("Fant ingen p med class='school-grade'.")
+
         temp_html_obj = tempfile.NamedTemporaryFile()
         temp_html = temp_html_obj.name
 

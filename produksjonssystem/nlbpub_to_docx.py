@@ -147,8 +147,8 @@ class NLBpubToDocx(Pipeline):
                     doc_title = title.text.strip()
                     break
 
-            # book standard Overskrifter (uten xxx, med visuell stilmarkering) (4.1.1)
-            if grade is not None and grade > 7:
+            # book standard Overskrifter (uten xxx, med visuell stilmarkering) (4.1.1 --- til og med 5. trinn)
+            if grade is not None and grade > 5:
                 self.utils.report.info(f"Fant klassetrinn {grade}, fjerner 'xxx' fra overskrifter og innholdsfortegnelse.")
                 for idx in range(1, 7):
                     for heading in root.xpath(f"//*[local-name()='h{idx}']"):
@@ -405,9 +405,10 @@ class NLBpubToDocx(Pipeline):
                 writeFile(xmlText, zippedFile)
                 zipdir(str(folder / tempFolder), str(folder), os.path.join(temp_docxdir, epub.identifier() + ".docx"))
 
-                # book standard Filnavn (4.2)
-                if grade is not None and grade <= 7 and doc_title:
+                # book standard Filnavn (4.2)-- this applies to all grades
+                if doc_title:
                     safe_title = re.sub(r'[\\/*?:"<>|]', "", doc_title)
+                    self.utils.report.info("Bokstandarden Filnavn (4.2) er brukt for " + epub.identifier() + " med filnavn " + safe_title + ".docx")
                     shutil.copy(os.path.join(temp_docxdir, epub.identifier() + ".docx"), os.path.join(temp_docxdir, safe_title + ".docx"))
 
 # ---------- end script from kvile -------

@@ -23,6 +23,7 @@ import core.endpoints.editions  # noqa
 import core.endpoints.health  # noqa
 import core.endpoints.lines  # noqa
 import core.endpoints.steps  # noqa
+import core.endpoints.documentation  # noqa
 import core.server  # noqa
 import core.rabbitmq_receiver  # noqa
 
