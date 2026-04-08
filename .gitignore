@@ -28,7 +28,8 @@ xslt/**/*-result.xml
 .vscode/settings.json
 
 .vs/
-*.DS_Store
+.DS_Store
+**/.DS_Store
 env/
 
 venv/
