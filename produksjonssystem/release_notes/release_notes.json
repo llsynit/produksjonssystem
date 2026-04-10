@@ -1,11 +1,12 @@
 {
     "updates": [
         {
-            "version": "1.2.0",
-            "date": "2026-04-08",
+            "version": "1.2.1",
+            "date": "2026-04-10",
             "changes": {
                 "added": [
                     "Fjernet pipeline for innlesing med Hindenburg",
+                    "Fjernet pipeline for Trondheim Docx - ble ikke brukt",
                     "Funksjon for å fjerne p med class='school-grade' i prepare_for_braille, nlbpub_to_html, nlbpub_to_narration_epub og nlbpub_to_epub",
                     "API-endepunkt for å vise endringer i produksjonssystemet"
                 ],
@@ -13,7 +14,8 @@
                     "Bok standard 4.2: Filnavn på DocX slik at produksjonsnummeret kommer med og produksjonsnummer kommer etter."
                 ],
                 "fixed": [
-                    "Fix TypeError: Argument must be bytes or unicode, got 'NoneType' when transferring metadata to PEF"
+                    "Fix TypeError: Argument must be bytes or unicode, got 'NoneType' when transferring metadata to PEF",
+                    "Added SAXON_JAR and JING_JAR files and their environment variables in dockerfile - no need to reference to daisy pipeline jar files and include them in .env file"
                 ]
             }
         },
