@@ -39,19 +39,19 @@ from core.utils.metadata import Metadata  # noqa
 # from check_pef import CheckPef  # noqa
 # from incoming_NLBPUB import (NLBPUB_incoming_validator,
 #                              NLBPUB_incoming_warning, NLBPUB_validator)  # noqa
-from daisy202_to_distribution import Daisy202ToDistribution # noqa
+# from daisy202_to_distribution import Daisy202ToDistribution # noqa
 from incoming_nordic import IncomingNordic  # noqa
 from insert_metadata import (InsertMetadataBraille, InsertMetadataDaisy202,
                              InsertMetadataXhtml)  # noqa
 from magazines_to_validation import MagazinesToValidation
-from make_abstracts import Audio_Abstract  # noqa
+# from make_abstracts import Audio_Abstract  # noqa
 from newsletter import Newsletter  # noqa
 from newspaper_schibsted import DummyTtsNewspaperSchibsted, NewspaperSchibsted  # noqa
 from nlbpub_previous import NlbpubPrevious  # noqa
 from nlbpub_to_docx import NLBpubToDocx  # noqa
 from nlbpub_to_epub import NlbpubToEpub  # noqa
 from nlbpub_to_html import NlbpubToHtml  # noqa
-from nlbpub_to_tr_docx import NLBpubToTrDocx  # noqa
+# from nlbpub_to_tr_docx import NLBpubToTrDocx  # noqa
 from nlbpub_to_narration_epub import NlbpubToNarrationEpub  # noqa
 from nlbpub_to_pef import NlbpubToPef  # noqa
 from nlbpub_to_tts_dtbook import NlbpubToTtsDtbook  # noqa
@@ -237,13 +237,13 @@ class Produksjonssystem():
         self.dirs_ranked[-1]["dirs"]["pef"] = os.path.join(book_archive_dirs["master"], "utgave-ut/PEF")
         self.dirs_ranked[-1]["dirs"]["pef-checked"] = os.path.join(book_archive_dirs["master"], "utgave-ut/PEF-kontrollert")
         self.dirs_ranked[-1]["dirs"]["html"] = os.path.join(book_archive_dirs["master"], "utgave-ut/HTML")
-        self.dirs_ranked[-1]["dirs"]["epub-ebook"] = os.path.join(book_archive_dirs["share"], "daisy202/EPUB")
+        #self.dirs_ranked[-1]["dirs"]["epub-ebook"] = os.path.join(book_archive_dirs["share"], "daisy202/EPUB")
         self.dirs_ranked[-1]["dirs"]["docx"] = os.path.join(book_archive_dirs["master"], "utgave-ut/DOCX")
-        self.dirs_ranked[-1]["dirs"]["trd_docx"] = os.path.join(book_archive_dirs["master"], "utgave-ut/Trd_DOCX")
-        self.dirs_ranked[-1]["dirs"]["daisy202"] = os.path.join(book_archive_dirs["share"], "daisy202")
-        self.dirs_ranked[-1]["dirs"]["abstracts"] = os.path.join(book_archive_dirs["distribution"], "www/abstracts")
+        # self.dirs_ranked[-1]["dirs"]["trd_docx"] = os.path.join(book_archive_dirs["master"], "utgave-ut/Trd_DOCX")
+        # self.dirs_ranked[-1]["dirs"]["daisy202"] = os.path.join(book_archive_dirs["share"], "daisy202")
+        #self.dirs_ranked[-1]["dirs"]["abstracts"] = os.path.join(book_archive_dirs["distribution"], "www/abstracts")
         self.dirs_ranked[-1]["dirs"]["daisy202-ready"] = os.path.join(book_archive_dirs["master"], "utgave-klargjort/lydbok-til-validering")
-        self.dirs_ranked[-1]["dirs"]["daisy202-dist"] = os.path.join(book_archive_dirs["share"], "daisy202")
+        # self.dirs_ranked[-1]["dirs"]["daisy202-dist"] = os.path.join(book_archive_dirs["share"], "daisy202")
 
         # Make a key/value version of dirs_ranked for convenience
         self.dirs = {
@@ -307,19 +307,19 @@ class Produksjonssystem():
             [PrepareForDocx(retry_missing=True,
                             check_identifiers=True,
                             during_working_hours=True),         "pub-in-ebook",        "pub-ready-docx"],
-            [NlbpubToEpub(retry_missing=True,
-                          check_identifiers=True,
-                          during_working_hours=True,
-                          during_night_and_weekend=True),       "pub-ready-ebook",     "epub-ebook"],
+            #[NlbpubToEpub(retry_missing=True,
+            #              check_identifiers=True,
+            #              during_working_hours=True,
+            #              during_night_and_weekend=True),       "pub-ready-ebook",     "epub-ebook"],
             [NlbpubToHtml(retry_missing=True,
                           check_identifiers=True,
                           during_working_hours=True),           "pub-ready-ebook",     "html"],
             [NLBpubToDocx(retry_missing=True,
                           check_identifiers=True,
                           during_working_hours=True),           "pub-ready-docx",      "docx"],
-            [NLBpubToTrDocx(retry_missing=True,
-                          check_identifiers=True,
-                          during_working_hours=True),           "pub-ready-docx",      "trd_docx"],
+            #[NLBpubToTrDocx(retry_missing=True,
+            #              check_identifiers=True,
+            #              during_working_hours=True),           "pub-ready-docx",      "trd_docx"],
             #[Newsletter(during_working_hours=True,
             #            during_night_and_weekend=True),         None,                  "pub-ready-braille"],
             #[NewspaperSchibsted(during_working_hours=True,
