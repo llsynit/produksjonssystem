@@ -57,6 +57,8 @@ ENV TRIGGER_DIR="/tmp/trigger-produksjonssystem"
 ENV QUICKBASE_DUMP_DIR="/opt/quickbase"
 ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64/jre
 ENV EPUBCHECK_HOME="/opt/epubcheck"
+ENV SAXON_JAR="/usr/src/app/jar_files/saxon-he-9.5.1.5-1.jar"
+ENV JING_JAR="/usr/src/app/jar_files/jing-20161127.jar"
 ARG PRODSYS_VERSION="latest"
 ENV PRODSYS_VERSION=${PRODSYS_VERSION}
 
