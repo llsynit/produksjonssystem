@@ -18,13 +18,19 @@ class Xslt():
 
     @staticmethod
     def init_environment():
-        DaisyPipelineJob.init_environment()
-        for dirPath, subdirList, fileList in os.walk(DaisyPipelineJob.dp2_home):
-            for file in fileList:
-                if file.endswith(".jar") and "saxon-he" in file:
-                    Xslt.saxon_jar = os.path.join(dirPath, file)
-                elif file.endswith(".jar") and "jing" in file:
-                    Xslt.jing_jar = os.path.join(dirPath, file)
+        #DaisyPipelineJob.init_environment()
+        #for dirPath, subdirList, fileList in os.walk(DaisyPipelineJob.dp2_home):
+        #    for file in fileList:
+        #        if file.endswith(".jar") and "saxon-he" in file:
+        #            Xslt.saxon_jar = os.path.join(dirPath, file)
+        #        elif file.endswith(".jar") and "jing" in file:
+        #            Xslt.jing_jar = os.path.join(dirPath, file)
+        # if SAXON_JAR is set, use that instead
+        if "SAXON_JAR" in os.environ:
+            Xslt.saxon_jar = os.environ["SAXON_JAR"]
+        # if JING_JAR is set, use that instead
+        if "JING_JAR" in os.environ:
+            Xslt.jing_jar = os.environ["JING_JAR"]
 
     def __init__(self,
                  pipeline=None,
