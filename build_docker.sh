@@ -51,7 +51,7 @@ try:
         # Plain text sections
         msg_out = [
             \"Hei,\",
-            \"Vi har nå publisert en ny versjon av produksjonssystemet.\",
+            \"Vi har nå publisert en ny versjon av det gamle produksjonssystemet.\",
             \"Nedenfor finner dere en oversikt over endringer, forbedringer og feilrettinger i denne oppdateringen.\",
             \"\",
             f\"Version: {version}\",

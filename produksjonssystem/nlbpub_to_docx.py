@@ -408,8 +408,8 @@ class NLBpubToDocx(Pipeline):
                 # book standard Filnavn (4.2)-- this applies to all grades
                 if doc_title:
                     safe_title = re.sub(r'[\\/*?:"<>|]', "", doc_title)
-                    self.utils.report.info("Bokstandarden Filnavn (4.2) er brukt for " + epub.identifier() + " med filnavn " + safe_title + ".docx")
-                    shutil.copy(os.path.join(temp_docxdir, epub.identifier() + ".docx"), os.path.join(temp_docxdir, safe_title + ".docx"))
+                    self.utils.report.info("Bokstandarden Filnavn (4.2) er brukt for " + epub.identifier() + " med filnavn " + safe_title    + " " + epub.identifier() + ".docx")
+                    shutil.copy(os.path.join(temp_docxdir, epub.identifier() + ".docx"), os.path.join(temp_docxdir, safe_title + " " + epub.identifier() + ".docx"))
 
 # ---------- end script from kvile -------
 

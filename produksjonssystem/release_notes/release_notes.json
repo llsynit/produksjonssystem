@@ -1,6 +1,21 @@
 {
     "updates": [
         {
+            "version": "1.2.2",
+            "date": "2026-04-13",
+            "changes": {
+                "added": [
+                    ""
+                ],
+                "changed": [
+                    "Bok standard 4.2: Filnavn på DocX slik at produksjonsnummeret kommer med og produksjonsnummer kommer etter. For eksempel: Relevans 10 862845.docx"
+                ],
+                "fixed": [
+                    ""
+                ]
+            }
+        },
+        {
             "version": "1.2.1",
             "date": "2026-04-10",
             "changes": {
