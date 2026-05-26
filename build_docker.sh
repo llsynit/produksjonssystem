@@ -52,10 +52,9 @@ try:
         msg_out = [
             \"Hei,\",
             \"Vi har nå publisert en ny versjon av det gamle produksjonssystemet.\",
-            \"Nedenfor finner dere en oversikt over endringer, forbedringer og feilrettinger i denne oppdateringen.\",
             \"\",
-            f\"Version: {version}\",
-            f\"Date: {date}\",
+            f\"Versjon: {version}\",
+            f\"Dato: {date}\",
             \"\"
         ]
         
