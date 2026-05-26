@@ -81,39 +81,7 @@ class Produksjonssystem():
     airbrake_config = None
 
     def __init__(self, environment=None, verbose=False):
-        logger = logging.getLogger()
-        if os.environ.get("LOCATION_LOG_FILE") is not None:
-            logfile = os.environ.get("LOCATION_LOG_FILE")
-        else:
-            logfile = "/tmp/produksjonssystem.log"
-        handler = TimedRotatingFileHandler(logfile,
-                                           when="D",
-                                           interval=7,
-                                           backupCount=5)
-        fmt = "%(asctime)s %(levelname)-8s [%(threadName)-30s] %(message)s"
-        formatter = logging.Formatter(fmt=fmt)
-        handler.setFormatter(formatter)
-        handler.setLevel(level=logging.DEBUG if os.environ.get("DEBUG", "1") == "1" else logging.INFO)
-        logger.addHandler(handler)
-        if verbose:
-            consoleHandler = logging.StreamHandler(sys.stdout)
-            consoleHandler.setFormatter(formatter)
-            consoleHandler.setLevel(level=logging.DEBUG if os.environ.get("DEBUG", "1") == "1" else logging.INFO)
-            logger.addHandler(consoleHandler)
 
-        # add airbrake.io handler
-        self.airbrake_config = {
-            "project_id": os.getenv("AIRBRAKE_PROJECT_ID", None),
-            "project_key": os.getenv("AIRBRAKE_PROJECT_KEY", None),
-            "environment": os.getenv("AIRBRAKE_ENVIRONMENT", "development")
-        }
-        if self.airbrake_config["project_id"] and self.airbrake_config["project_key"]:
-            notifier = pybrake.Notifier(**self.airbrake_config)
-            airbrake_handler = pybrake.LoggingHandler(notifier=notifier, level=logging.ERROR)
-            logging.getLogger().addHandler(airbrake_handler)
-        else:
-            self.airbrake_config = None
-            logging.warning("Airbrake.io not configured (missing AIRBRAKE_PROJECT_ID and/or AIRBRAKE_PROJECT_KEY)")
 
         # Set environment variables (mainly useful when testing)
         if environment:
@@ -161,6 +129,46 @@ class Produksjonssystem():
         Config.set("reports_dir", os.getenv("REPORTS_DIR", os.path.join(book_archive_dirs["master"], "rapporter")))
         Config.set("metadata_dir", os.getenv("METADATA_DIR", os.path.join(book_archive_dirs["master"], "metadata")))
         Config.set("nlbsamba.dir", os.environ.get("NLBSAMBA_DIR"))
+
+        logger = logging.getLogger()
+        save_prod_logs = os.environ.get("SAVE_PROD_LOGS", "no").lower()
+        logfile = "/tmp/produksjonssystem.log"
+        if save_prod_logs == "yes":
+            logdir = os.path.join(Config.get("reports_dir"), "logs", "produksjonssystemlog", datetime.date.today().isoformat())
+            try:
+                os.makedirs(logdir, exist_ok=True)
+                logfile = os.path.join(logdir, "produksjonssystem.log")
+            except OSError as e:
+                print(f"Warning: Could not create log directory {logdir} ({e}). Falling back to {logfile}", file=sys.stderr)
+
+        handler = TimedRotatingFileHandler(logfile,
+                                           when="D",
+                                           interval=7,
+                                           backupCount=5)
+        fmt = "%(asctime)s %(levelname)-8s [%(threadName)-30s] %(message)s"
+        formatter = logging.Formatter(fmt=fmt)
+        handler.setFormatter(formatter)
+        handler.setLevel(level=logging.DEBUG if os.environ.get("DEBUG", "1") == "1" else logging.INFO)
+        logger.addHandler(handler)
+        if verbose:
+            consoleHandler = logging.StreamHandler(sys.stdout)
+            consoleHandler.setFormatter(formatter)
+            consoleHandler.setLevel(level=logging.DEBUG if os.environ.get("DEBUG", "1") == "1" else logging.INFO)
+            logger.addHandler(consoleHandler)
+
+        # add airbrake.io handler
+        self.airbrake_config = {
+            "project_id": os.getenv("AIRBRAKE_PROJECT_ID", None),
+            "project_key": os.getenv("AIRBRAKE_PROJECT_KEY", None),
+            "environment": os.getenv("AIRBRAKE_ENVIRONMENT", "development")
+        }
+        if self.airbrake_config["project_id"] and self.airbrake_config["project_key"]:
+            notifier = pybrake.Notifier(**self.airbrake_config)
+            airbrake_handler = pybrake.LoggingHandler(notifier=notifier, level=logging.ERROR)
+            logging.getLogger().addHandler(airbrake_handler)
+        else:
+            self.airbrake_config = None
+            logging.warning("Airbrake.io not configured (missing AIRBRAKE_PROJECT_ID and/or AIRBRAKE_PROJECT_KEY)")
 
         # Define directories (using OrderedDicts to preserve order when plotting)
         self.dirs_ranked = []
