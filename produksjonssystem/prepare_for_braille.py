@@ -230,6 +230,41 @@ class PrepareForBraille(Pipeline):
                 braille_section.insert(0, child.extract())
             pef_about.decompose()
 
+
+        # Strip leading and trailing whitespace from aside elements recursively
+        for aside in soup.find_all("aside"):
+            aside_id = aside.get('id')
+            # Strip leading whitespace
+            while True:
+                text_nodes = [node for node in aside.find_all(string=True)]
+                if not text_nodes:
+                    break
+                first_node = text_nodes[0]
+                if not first_node.strip():
+                    self.utils.report.info("Fjernet tom ledende tekstnode i aside id=%s: %s", aside_id, repr(first_node))
+                    first_node.extract()
+                else:
+                    lstripped = first_node.lstrip()
+                    if first_node != lstripped:
+                        self.utils.report.info("Strippet ledende whitespace fra aside id=%s: %s -> %s", aside_id, repr(first_node), repr(lstripped))
+                        first_node.replace_with(lstripped)
+                    break
+
+            # Strip trailing whitespace
+            while True:
+                text_nodes = [node for node in aside.find_all(string=True)]
+                if not text_nodes:
+                    break
+                last_node = text_nodes[-1]
+                if not last_node.strip():
+                    self.utils.report.info("Fjernet tom etterfølgende tekstnode i aside id=%s: %s", aside_id, repr(last_node))
+                    last_node.extract()
+                else:
+                    rstripped = last_node.rstrip()
+                    if last_node != rstripped:
+                        self.utils.report.info("Strippet etterfølgende whitespace fra aside id=%s: %s -> %s", aside_id, repr(last_node), repr(rstripped))
+                        last_node.replace_with(rstripped)
+                    break
         # Save to file
         with open(html_file, "w", encoding="utf-8") as f:
             f.write(str(soup))
