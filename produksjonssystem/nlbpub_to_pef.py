@@ -23,6 +23,7 @@ if sys.version_info[0] != 3 or sys.version_info[1] < 5:
     print("# This script requires Python version 3.5+")
     sys.exit(1)
 
+
 def transfer_metadata_from_html_to_pef(html_file, pef_file, additional_metadata):
     html_xml = ElementTree.parse(html_file).getroot()
     pef_xml_document = ElementTree.parse(pef_file)
