@@ -24,29 +24,9 @@ if sys.version_info[0] != 3 or sys.version_info[1] < 5:
     sys.exit(1)
 
 
-def transfer_metadata_from_html_to_pef(html_file: str, pef_file: str,
-                                       additional_metadata: List[Tuple[str, str, str, Optional[str], str]]) -> None:
-    """
-    Transfers metadata from an HTML file to a PEF file.
-
-    Args:
-        html_file (str): The path to the HTML file.
-        pef_file (str): The path to the PEF file.
-        additional_metadata (List[Tuple[str, str, str, Optional[str], str]]): A list of tuples containing metadata to be added to the PEF file.
-
-        Each tuple contains the following elements:
-            tagname (str): The name of the metadata tag.
-            prefix (str): The prefix of the metadata namespace.
-            namespace (str): The namespace of the metadata.
-            attribname (Optional[str]): The name of the metadata attribute.
-            value (str): The value of the metadata.
-
-    Returns:
-        None
-    """
-    xml_parser = ElementTree.XMLParser(remove_blank_text=True)
-    html_xml = ElementTree.parse(html_file, parser=xml_parser).getroot()
-    pef_xml_document = ElementTree.parse(pef_file, parser=xml_parser)
+def transfer_metadata_from_html_to_pef(html_file, pef_file, additional_metadata):
+    html_xml = ElementTree.parse(html_file).getroot()
+    pef_xml_document = ElementTree.parse(pef_file)
     pef_xml = pef_xml_document.getroot()
     html_meta_elements = html_xml.xpath("/*/*[local-name()='head']/*")
     pef_meta = pef_xml.xpath("/*/*[local-name()='head']/*[local-name()='meta']")[0]
@@ -101,11 +81,7 @@ def transfer_metadata_from_html_to_pef(html_file: str, pef_file: str,
             tag = "{" + namespace + "}" + meta.attrib["name"].split(":")[1]
             text = meta.attrib["content"]
 
-        element = ElementTree.Element(
-            tag,
-            attrib={"xmlns": namespace},
-            nsmap={prefix: meta.nsmap[prefix] for prefix in meta.nsmap if meta.nsmap[prefix] == namespace}
-        )
+        element = ElementTree.Element(tag, nsmap={prefix: meta.nsmap[prefix] for prefix in meta.nsmap if meta.nsmap[prefix] == namespace})
         element.text = text
         if namespace == "http://purl.org/dc/elements/1.1/":
             element = ElementTree.Comment(" " + ElementTree.tounicode(element) + " ")

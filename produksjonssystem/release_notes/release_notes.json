@@ -1,5 +1,37 @@
 {
     "updates": [
+          {
+            "version": "1.2.4",
+            "date": "2026-06-26",
+            "changes": {
+                "added": [
+                    ""
+                ],
+                "changed": [
+                    ""
+                ],
+                "fixed": [
+                    "PEF: Fixed TypeError: Argument must be bytes or unicode, got 'NoneType' when transferring metadata to PEF"
+                    "Metadata er lagt inn riktig i PEF og filen kan åpnes i Dotify studio"
+                ]
+            }
+        },
+        {
+            "version": "1.2.3",
+            "date": "2026-05-05",
+            "changes": {
+                "added": [
+                    ".env må ha: SAVE_PROD_LOGS=YES",
+                    "produksjonslogg: logger lagres i mappen book-archive/rapporter/logs/produksjonssystemlog"
+                ],
+                "changed": [
+                    ""
+                ],
+                "fixed": [
+                    ""
+                ]
+            }
+        },
         {
             "version": "1.2.2",
             "date": "2026-04-13",

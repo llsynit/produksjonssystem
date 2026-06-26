@@ -53,6 +53,6 @@ generate-requirements.sh
 pylama.ini
 Jenkinsfile
 
-# Note: epubcheck-5.3.0 is a large folder but cannot be ignored here because
-# it is explicitly copied by `COPY epubcheck-5.3.0 /opt/epubcheck` in the Dockerfile
-# prior to `COPY . /usr/src/app`. Ignoring it would break the Dockerfile build.epubcheck-5.3.0/
+# We download epubcheck in the Dockerfile, so we can safely ignore any local copy
+epubcheck-*/
+documentation.md
