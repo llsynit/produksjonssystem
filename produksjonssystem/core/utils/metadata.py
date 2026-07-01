@@ -73,6 +73,57 @@ class Metadata:
             return Metadata.requests_cache[url]["response"]
 
     @staticmethod
+    def _api_base_url():
+        return Config.get("nlb_api_url").rstrip("/") if Config.get("nlb_api_url") else None
+
+    @staticmethod
+    def _response_status_code(response, format="json"):
+        if response is None:
+            return None
+
+        if format == "json" and response.status_code == 200:
+            try:
+                response_json = response.json()
+                return response_json.get("statusCode", response.status_code)
+            except Exception:
+                return response.status_code
+
+        return response.status_code
+
+    @staticmethod
+    def _response_data(response, url, report=logging):
+        try:
+            response_json = response.json()
+        except Exception:
+            report.debug("Could not parse response as JSON from: {}".format(url))
+            report.debug(traceback.format_exc())
+            return None
+
+        if "data" not in response_json:
+            report.debug("response as JSON:")
+            report.debug(str(response_json))
+            raise Exception("No 'data' in response: {}".format(url))
+
+        return response_json["data"]
+
+    @staticmethod
+    def _fix_short_edition_identifiers(creative_work, edition_identifier):
+        if creative_work is None or "editions" not in creative_work:
+            return creative_work
+
+        # The API may return six digit identifiers even when the incoming production
+        # identifier has a date suffix. Keep the old production-system convention:
+        # append the suffix to all six digit editions belonging to the same work.
+        suffix = edition_identifier[6:] if edition_identifier and len(edition_identifier) > 6 else ""
+        if suffix:
+            for edition in creative_work["editions"]:
+                if isinstance(edition.get("identifier"), str) and len(edition["identifier"]) == 6:
+                    edition["identifier"] += suffix
+
+        return creative_work
+
+
+    @staticmethod
     def get_edition_from_api(edition_identifier, format="json", report=logging, use_cache_if_possible=False):
         if not Config.get("nlb_api_url"):
             report.warning("nlb_api_url is not set, unable to get metadata from API")
@@ -143,30 +194,47 @@ class Metadata:
             else:
                 report.debug("Could not find the creative work for '{}' in the cache. Will have to try the API directly instead.".format(edition_identifier))
 
+        api_base_url = Metadata._api_base_url()
+
+        # New preferred lookup. The public API exposes /creative-works/edition:{editionId}.
+        # This avoids assuming that an ISBN/edition identifier is itself a creativeWorkId;
+        # that old assumption now gives HTTP 410 Gone for some identifiers.
+        creative_work_url = "{}/creative-works/edition:{}?editions-metadata={}&creative-work-metadata={}".format(
+            api_base_url, edition_identifier, editions_metadata, creative_work_metadata)
+        report.debug("getting creative work metadata from edition endpoint: {}".format(creative_work_url))
+        response = Metadata.requests_get(creative_work_url)
+        status_code = Metadata._response_status_code(response)
+
+        if status_code == 200:
+            data = Metadata._response_data(response, creative_work_url, report=report)
+            return Metadata._fix_short_edition_identifiers(data, edition_identifier)
+
+        report.debug("Could not get creative work metadata from edition endpoint for {}. Status: {}".format(edition_identifier, status_code))
+
+        # Fallback for older/internal API behaviour: get the edition first, then use
+        # the creativeWork id returned by the edition resource.
         edition = Metadata.get_edition_from_api(edition_identifier, report=report)
 
         if not edition:
             return None
 
-        creative_work_url = "{}/creative-works/{}?editions-metadata={}&creative-work-metadata={}".format(Config.get("nlb_api_url"), edition["creativeWork"], editions_metadata, creative_work_metadata)
-
-        report.debug("getting creative work metadata from: {}".format(creative_work_url))
-        response = Metadata.requests_get(creative_work_url)
-        if response.status_code == 200:
-            response_json = response.json()
-            if "data" not in response_json:
-                report.debug("response as JSON:")
-                report.debug(str(response_json))
-                raise Exception("No 'data' in response: {}".format(creative_work_url))
-            data = response_json['data']
-            for e in data["editions"]:
-                if len(e["identifier"]) == 6:
-                    e["identifier"] += edition_identifier[6:]  # assume the same trailing digits for all editions
-            return data
-
-        else:
-            report.debug("Could not get creative work metadata for {}".format(edition_identifier))
+        creative_work_identifier = edition.get("creativeWork")
+        if not creative_work_identifier:
+            report.debug("Edition metadata for {} did not contain creativeWork".format(edition_identifier))
             return None
+
+        creative_work_url = "{}/creative-works/{}?editions-metadata={}&creative-work-metadata={}".format(
+            api_base_url, creative_work_identifier, editions_metadata, creative_work_metadata)
+
+        report.debug("getting creative work metadata from creativeWork id: {}".format(creative_work_url))
+        response = Metadata.requests_get(creative_work_url)
+        status_code = Metadata._response_status_code(response)
+        if status_code == 200:
+            data = Metadata._response_data(response, creative_work_url, report=report)
+            return Metadata._fix_short_edition_identifiers(data, edition_identifier)
+
+        report.debug("Could not get creative work metadata for {}. Status: {}".format(edition_identifier, status_code))
+        return None
 
     @staticmethod
     def get_identifiers(edition_identifier, report=logging, use_cache_if_possible=False):
