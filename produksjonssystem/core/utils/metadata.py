@@ -77,21 +77,28 @@ class Metadata:
         return Config.get("nlb_api_url").rstrip("/") if Config.get("nlb_api_url") else None
 
     @staticmethod
-    def _response_status_code(response, format="json"):
+    def _api_status_code(response, format="json"):
         if response is None:
             return None
-
         if format == "json" and response.status_code == 200:
             try:
-                response_json = response.json()
-                return response_json.get("statusCode", response.status_code)
+                return response.json().get("statusCode", response.status_code)
             except Exception:
                 return response.status_code
-
         return response.status_code
 
     @staticmethod
-    def _response_data(response, url, report=logging):
+    def _creative_work_from_response(response, url, report=logging):
+        """Return creative-work data from an API response if present.
+
+        api.nlb.no may return HTTP 410 for old creative-work lookups, while still
+        including the useful creative-work payload in data.data. Treat such a
+        payload as usable metadata instead of failing purely because success is
+        false / statusCode is 410.
+        """
+        if response is None:
+            return None
+
         try:
             response_json = response.json()
         except Exception:
@@ -99,12 +106,24 @@ class Metadata:
             report.debug(traceback.format_exc())
             return None
 
-        if "data" not in response_json:
-            report.debug("response as JSON:")
-            report.debug(str(response_json))
-            raise Exception("No 'data' in response: {}".format(url))
+        candidates = []
 
-        return response_json["data"]
+        if isinstance(response_json, dict):
+            candidates.append(response_json)
+            outer_data = response_json.get("data")
+            if isinstance(outer_data, dict):
+                candidates.append(outer_data)
+                inner_data = outer_data.get("data")
+                if isinstance(inner_data, dict):
+                    candidates.append(inner_data)
+            elif isinstance(outer_data, list):
+                candidates.extend([x for x in outer_data if isinstance(x, dict)])
+
+        for candidate in candidates:
+            if isinstance(candidate, dict) and "editions" in candidate and "identifier" in candidate:
+                return candidate
+
+        return None
 
     @staticmethod
     def _fix_short_edition_identifiers(creative_work, edition_identifier):
@@ -121,7 +140,6 @@ class Metadata:
                     edition["identifier"] += suffix
 
         return creative_work
-
 
     @staticmethod
     def get_edition_from_api(edition_identifier, format="json", report=logging, use_cache_if_possible=False):
@@ -196,23 +214,36 @@ class Metadata:
 
         api_base_url = Metadata._api_base_url()
 
-        # New preferred lookup. The public API exposes /creative-works/edition:{editionId}.
-        # This avoids assuming that an ISBN/edition identifier is itself a creativeWorkId;
-        # that old assumption now gives HTTP 410 Gone for some identifiers.
-        creative_work_url = "{}/creative-works/edition:{}?editions-metadata={}&creative-work-metadata={}".format(
+        # 1) Current practical API behaviour for ISBN/creative-work identifiers:
+        #    /creative-works/{identifier} may return HTTP 410 Gone, but the response
+        #    body can still contain the creative-work payload in data.data.
+        #    This is enough for the production system, so use it when present.
+        direct_creative_work_url = "{}/creative-works/{}?editions-metadata={}&creative-work-metadata={}".format(
             api_base_url, edition_identifier, editions_metadata, creative_work_metadata)
-        report.debug("getting creative work metadata from edition endpoint: {}".format(creative_work_url))
-        response = Metadata.requests_get(creative_work_url)
-        status_code = Metadata._response_status_code(response)
-
-        if status_code == 200:
-            data = Metadata._response_data(response, creative_work_url, report=report)
+        report.debug("getting creative work metadata directly: {}".format(direct_creative_work_url))
+        response = Metadata.requests_get(direct_creative_work_url)
+        data = Metadata._creative_work_from_response(response, direct_creative_work_url, report=report)
+        if data:
+            status_code = Metadata._api_status_code(response)
+            if status_code != 200:
+                report.debug("Using creative-work payload from non-200 response. Status: {}. URL: {}".format(status_code, direct_creative_work_url))
             return Metadata._fix_short_edition_identifiers(data, edition_identifier)
 
+        # 2) If the incoming identifier is an actual edition id, this endpoint is
+        #    the cleanest lookup path in the current API.
+        edition_creative_work_url = "{}/creative-works/edition:{}?editions-metadata={}&creative-work-metadata={}".format(
+            api_base_url, edition_identifier, editions_metadata, creative_work_metadata)
+        report.debug("getting creative work metadata from edition endpoint: {}".format(edition_creative_work_url))
+        response = Metadata.requests_get(edition_creative_work_url)
+        data = Metadata._creative_work_from_response(response, edition_creative_work_url, report=report)
+        if data:
+            return Metadata._fix_short_edition_identifiers(data, edition_identifier)
+
+        status_code = Metadata._api_status_code(response)
         report.debug("Could not get creative work metadata from edition endpoint for {}. Status: {}".format(edition_identifier, status_code))
 
-        # Fallback for older/internal API behaviour: get the edition first, then use
-        # the creativeWork id returned by the edition resource.
+        # 3) Old/internal API behaviour: get the edition first, then use the
+        #    creativeWork id returned by the edition resource.
         edition = Metadata.get_edition_from_api(edition_identifier, report=report)
 
         if not edition:
@@ -228,11 +259,11 @@ class Metadata:
 
         report.debug("getting creative work metadata from creativeWork id: {}".format(creative_work_url))
         response = Metadata.requests_get(creative_work_url)
-        status_code = Metadata._response_status_code(response)
-        if status_code == 200:
-            data = Metadata._response_data(response, creative_work_url, report=report)
+        data = Metadata._creative_work_from_response(response, creative_work_url, report=report)
+        if data:
             return Metadata._fix_short_edition_identifiers(data, edition_identifier)
 
+        status_code = Metadata._api_status_code(response)
         report.debug("Could not get creative work metadata for {}. Status: {}".format(edition_identifier, status_code))
         return None
 
