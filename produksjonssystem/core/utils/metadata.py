@@ -73,86 +73,25 @@ class Metadata:
             return Metadata.requests_cache[url]["response"]
 
     @staticmethod
-    def _api_base_url():
-        return Config.get("nlb_api_url").rstrip("/") if Config.get("nlb_api_url") else None
-
-    @staticmethod
-    def _api_status_code(response, format="json"):
-        if response is None:
-            return None
-        if format == "json" and response.status_code == 200:
-            try:
-                return response.json().get("statusCode", response.status_code)
-            except Exception:
-                return response.status_code
-        return response.status_code
-
-    @staticmethod
-    def _creative_work_from_response(response, url, report=logging):
-        """Return creative-work data from an API response if present.
-
-        api.nlb.no may return HTTP 410 for old creative-work lookups, while still
-        including the useful creative-work payload in data.data. Treat such a
-        payload as usable metadata instead of failing purely because success is
-        false / statusCode is 410.
-        """
-        if response is None:
-            return None
-
-        try:
-            response_json = response.json()
-        except Exception:
-            report.debug("Could not parse response as JSON from: {}".format(url))
-            report.debug(traceback.format_exc())
-            return None
-
-        candidates = []
-
-        if isinstance(response_json, dict):
-            candidates.append(response_json)
-            outer_data = response_json.get("data")
-            if isinstance(outer_data, dict):
-                candidates.append(outer_data)
-                inner_data = outer_data.get("data")
-                if isinstance(inner_data, dict):
-                    candidates.append(inner_data)
-            elif isinstance(outer_data, list):
-                candidates.extend([x for x in outer_data if isinstance(x, dict)])
-
-        for candidate in candidates:
-            if isinstance(candidate, dict) and "editions" in candidate and "identifier" in candidate:
-                return candidate
-
-        return None
-
-    @staticmethod
-    def _fix_short_edition_identifiers(creative_work, edition_identifier):
-        if creative_work is None or "editions" not in creative_work:
-            return creative_work
-
-        # The API may return six digit identifiers even when the incoming production
-        # identifier has a date suffix. Keep the old production-system convention:
-        # append the suffix to all six digit editions belonging to the same work.
-        suffix = edition_identifier[6:] if edition_identifier and len(edition_identifier) > 6 else ""
-        if suffix:
-            for edition in creative_work["editions"]:
-                if isinstance(edition.get("identifier"), str) and len(edition["identifier"]) == 6:
-                    edition["identifier"] += suffix
-
-        return creative_work
-
-    @staticmethod
     def get_edition_from_api(edition_identifier, format="json", report=logging, use_cache_if_possible=False):
         if not Config.get("nlb_api_url"):
-            report.warning("nlb_api_url is not set, unable to get metadata from API")
-            return None
+            report.warning("nlb_api_url is not set, unable to get metadata from API. Trying LMSyn API fallback.")
+            return Metadata.get_edition_from_lmsyn_api(
+                edition_identifier,
+                format=format,
+                report=report,
+                use_cache_if_possible=use_cache_if_possible
+            )
 
         if format == "json" and use_cache_if_possible:
             cached_data = Metadata.get_creative_work_from_cache(edition_identifier, report=report)
-            for edition in cached_data["editions"]:
-                if edition["identifier"] == edition_identifier:
-                    return edition
+            if cached_data:
+                for edition in cached_data["editions"]:
+                    if edition["identifier"] == edition_identifier:
+                        return edition
             report.debug("Could not find the creative work for '{}' in the cache.".format(edition_identifier))
+            # Keep the original behavior: if the cache was explicitly requested and
+            # did not contain the edition, do not use API/fallback here.
             return None
 
         edition_url = None
@@ -164,8 +103,13 @@ class Metadata:
         report.debug("getting edition metadata from: {}".format(edition_url))
         response = Metadata.requests_get(edition_url)
 
-        short_identifier = None
-        status_code = response.json()["statusCode"] if response.status_code == 200 and format == "json" else response.status_code  # https://github.com/nlbdev/api-internal/issues/177
+        status_code = None
+        if response is not None:
+            try:
+                status_code = response.json()["statusCode"] if response.status_code == 200 and format == "json" else response.status_code  # https://github.com/nlbdev/api-internal/issues/177
+            except Exception:
+                status_code = response.status_code
+
         if response is not None and status_code in [404, 500] and len(edition_identifier) > 6:
             # fallback for as long as the API does not
             # support edition identifiers longer than 6 digits
@@ -180,7 +124,13 @@ class Metadata:
             report.debug("getting edition metadata from: {}".format(edition_url))
             response = Metadata.requests_get(edition_url)
 
-        status_code = response.json()["statusCode"] if response.status_code == 200 and format == "json" else response.status_code  # https://github.com/nlbdev/api-internal/issues/177
+        status_code = None
+        if response is not None:
+            try:
+                status_code = response.json()["statusCode"] if response.status_code == 200 and format == "json" else response.status_code  # https://github.com/nlbdev/api-internal/issues/177
+            except Exception:
+                status_code = response.status_code
+
         if response is not None and status_code == 200:
             if format == "json":
                 response_json = response.json()
@@ -195,15 +145,567 @@ class Metadata:
 
             return result
 
-        else:
-            report.debug("Could not get metadata for {}".format(edition_identifier))
+        report.debug("Could not get metadata for {} from NLB API. Trying LMSyn API fallback.".format(edition_identifier))
+        return Metadata.get_edition_from_lmsyn_api(
+            edition_identifier,
+            format=format,
+            report=report,
+            use_cache_if_possible=use_cache_if_possible
+        )
+
+    @staticmethod
+    def _get_config_value(*keys, default=None):
+        """Return the first non-empty value from Config.get(...) or os.environ."""
+        for key in keys:
+            value = None
+            try:
+                value = Config.get(key)
+            except Exception:
+                value = None
+
+            if value is None or value == "":
+                value = os.environ.get(key)
+
+            if value is not None and value != "":
+                return value
+
+        return default
+
+    @staticmethod
+    def _normalize_url(url):
+        if not url:
             return None
+
+        url = str(url).strip().strip('"').strip("'")
+
+        if not url.startswith("http://") and not url.startswith("https://"):
+            url = "https://" + url
+
+        return url.rstrip("/")
+
+    @staticmethod
+    def convert_lmsyn_metadata_to_nlb_shape(source):
+        """
+        Convert LMSyn metadata to an NLB-like creative-work wrapper.
+
+        Supports both known LMSyn structures:
+
+        1. Old/full structure:
+           {
+             "navn": "...",
+             "isbn": "...",
+             "produkter": [{"artikkelNr": "...", ...}]
+           }
+
+        2. New/simple structure:
+           {
+             "produksjonsType": "Masterfil",
+             "artikkelNr": "864115",
+             "tittel": "Leute 8",
+             "isbn": "9788203401466",
+             "forlag": "Aschehoug"
+           }
+        """
+
+        def date_only(value):
+            if not value:
+                return None
+
+            try:
+                value = str(value).replace("Z", "+00:00")
+
+                # Python supports max 6 decimals for microseconds. LMSyn may return 7.
+                if "." in value:
+                    before_dot, after_dot = value.split(".", 1)
+
+                    if "+" in after_dot:
+                        fraction, timezone = after_dot.split("+", 1)
+                        value = "{}.{}+{}".format(before_dot, fraction[:6], timezone)
+                    elif "-" in after_dot[1:]:
+                        fraction, timezone = after_dot.rsplit("-", 1)
+                        value = "{}.{}-{}".format(before_dot, fraction[:6], timezone)
+                    else:
+                        value = "{}.{}".format(before_dot, after_dot[:6])
+
+                return datetime.datetime.fromisoformat(value).date().isoformat()
+
+            except Exception:
+                return None
+
+        def get_filtypes_from_product(produkt):
+            filtyper = set()
+
+            for alternativ in produkt.get("produktAlternativList", []) or []:
+                if not isinstance(alternativ, dict):
+                    continue
+
+                filtype = str(alternativ.get("filType") or "").lower().lstrip(".")
+                if filtype:
+                    filtyper.add(filtype)
+
+            return filtyper
+
+        def format_from_product(produkt):
+            produksjons_type = str(produkt.get("produksjonsType") or "").lower()
+            produkt_type_id = str(produkt.get("produktTypeId") or "").lower()
+
+            produkt_type = produkt.get("produktType") or {}
+            if not isinstance(produkt_type, dict):
+                produkt_type = {}
+
+            produkt_type_navn = str(produkt_type.get("navn") or "").lower()
+            filtyper = get_filtypes_from_product(produkt)
+
+            # File type is the strongest signal.
+            if "epub" in filtyper:
+                return "EPUB"
+
+            if "html" in filtyper or "xhtml" in filtyper:
+                return "XHTML"
+
+            if "pef" in filtyper or "brf" in filtyper:
+                return "Braille"
+
+            # In this production flow DOCX/Word from LMSyn is used as a textual fallback.
+            # Metadata.formats does not include DOCX, so map it to XHTML to keep matching
+            # publication_format="XHTML" in insert_metadata().
+            if "docx" in filtyper or "word" in produkt_type_navn:
+                return "XHTML"
+
+            if (
+                "mp3" in filtyper
+                or "wav" in filtyper
+                or "daisy" in filtyper
+                or "daisy" in produkt_type_navn
+                or "lydbok" in produkt_type_navn
+                or "audio" in produkt_type_navn
+            ):
+                return "DAISY 2.02"
+
+            # New/simple LMSyn structure.
+            if "masterfil" in produksjons_type:
+                return "XHTML"
+
+            if "punktskrift" in produksjons_type or "braille" in produksjons_type:
+                return "Braille"
+
+            if "lyd" in produksjons_type or "daisy" in produksjons_type:
+                return "DAISY 2.02"
+
+            if "epub" in produksjons_type:
+                return "EPUB"
+
+            if "xhtml" in produksjons_type or "html" in produksjons_type:
+                return "XHTML"
+
+            # Old/full LMSyn structure.
+            if produkt_type_id == "ek" or "e-bok" in produkt_type_navn or "ebok" in produkt_type_navn:
+                return "XHTML"
+
+            return (
+                produkt.get("produksjonsType")
+                or produkt_type.get("navn")
+                or produkt.get("produktTypeId")
+                or "Unknown"
+            )
+
+        def capabilities_from_format(format_name):
+            normalized_format = str(format_name or "").lower()
+
+            includes_braille = normalized_format == "braille"
+            includes_audio = (
+                normalized_format in ["daisy 2.02", "braille"]
+                or "audio" in normalized_format
+                or "lyd" in normalized_format
+            )
+            includes_text = normalized_format in [
+                "epub",
+                "xhtml",
+                "html",
+                "braille",
+                "daisy 2.02",
+                "docx",
+            ]
+
+            return includes_audio, includes_braille, includes_text
+
+        # Product/edition level.
+        if isinstance(source.get("produkter"), list):
+            produkter = source.get("produkter") or []
+        elif source.get("artikkelNr"):
+            produkter = [source]
+        else:
+            produkter = []
+
+        title = str(source.get("tittel") or source.get("navn") or "").strip()
+        creative_work_identifier = source.get("isbn")
+
+        editions = []
+
+        for produkt in produkter:
+            if not isinstance(produkt, dict):
+                continue
+
+            format_name = format_from_product(produkt)
+            includes_audio, includes_braille, includes_text = capabilities_from_format(format_name)
+
+            deleted = bool(produkt.get("erDeaktivert", False))
+
+            if "publishStatus" in produkt:
+                is_available = bool(produkt.get("publishStatus") == 2 and not deleted)
+            else:
+                # The simple LMSyn response does not expose publication status. If the
+                # authenticated API returns a concrete record, treat it as usable metadata.
+                is_available = not deleted
+
+            registered = (
+                date_only(produkt.get("opprettetUtc"))
+                or date_only(produkt.get("publisertUtc"))
+                or date_only(produkt.get("sistOppdatertUtc"))
+            )
+
+            edition = {
+                "available": None,
+                "creativeWork": creative_work_identifier,
+                "deleted": deleted,
+                "educationalUse": False,
+                "format": format_name,
+                "identifier": str(produkt.get("artikkelNr")) if produkt.get("artikkelNr") is not None else None,
+                "includesAudio": includes_audio,
+                "includesBraille": includes_braille,
+                "includesText": includes_text,
+                "isAvailable": is_available,
+                "isForDistribution": is_available,
+                "library": "Statped",
+                "loans": 0,
+                "md5": None,
+                "narratedUsingTts": False,
+                "presentableTitle": title,
+                "registered": registered,
+                "title": title,
+                "underProduction": not is_available,
+                "__source": "lmsyn",
+            }
+
+            editions.append(edition)
+
+        return {
+            "success": True,
+            "statusCode": 200,
+            "message": "OK",
+            "headers": {},
+            "data": {
+                "editions": editions,
+                "identifier": creative_work_identifier,
+                "md5": None,
+                "title": title,
+                "__source": "lmsyn",
+            },
+        }
+
+    @staticmethod
+    def get_creative_work_from_lmsyn_api(edition_identifier, report=logging):
+        """Return an NLB-like creative-work dict built from LMSyn, or None."""
+        lmsyn_json = Metadata.get_edition_from_lmsyn_api(edition_identifier, format="lmsyn-json", report=report)
+        if not lmsyn_json:
+            return None
+
+        converted = Metadata.convert_lmsyn_metadata_to_nlb_shape(lmsyn_json)
+        if not converted or "data" not in converted:
+            report.debug("Could not convert LMSyn metadata to creative work shape for {}".format(edition_identifier))
+            return None
+
+        data = converted["data"]
+        data["__source"] = "lmsyn"
+        return data
+
+    @staticmethod
+    def get_edition_from_lmsyn_api(edition_identifier, format="json", report=logging, use_cache_if_possible=False, epub=None):
+        """
+        LMSyn fallback for edition metadata.
+
+        Supported formats:
+          - "json": return one NLB-like edition dict
+          - "opf": return a <metadata>...</metadata> string
+          - "html": return a <head>...</head> string
+          - "lmsyn-json": internal helper; return raw LMSyn JSON
+        """
+
+        import html
+        from requests.auth import HTTPBasicAuth
+
+        if format not in ["json", "opf", "html", "lmsyn-json"]:
+            report.warning("LMSyn API fallback only supports json, opf and html format")
+            return None
+
+        lmsyn_api_url = Metadata._get_config_value("lmsyn_api_url", "LMSYN_API_URL")
+        lmsyn_api_url = Metadata._normalize_url(lmsyn_api_url)
+
+        if not lmsyn_api_url:
+            report.warning("lmsyn_api_url is not set, unable to get metadata from LMSyn API")
+            return None
+
+        lmsyn_username = Metadata._get_config_value("lmsyn_username", "LMSYN_USERNAME")
+        lmsyn_password = Metadata._get_config_value("lmsyn_password", "LMSYN_PASSWORD")
+
+        auth = None
+        if lmsyn_username and lmsyn_password:
+            auth = HTTPBasicAuth(lmsyn_username, lmsyn_password)
+        else:
+            report.warning("LMSyn username/password is not set. Request will probably return 401.")
+
+        # Use the UTF-8 path literally. requests will percent-encode as needed.
+        # Some proxies/servers also accept the pre-encoded form; the literal form
+        # is easier to read in logs and matches the documented path.
+        edition_url = "{}/produksjon/metadata/artikkelnr/{}".format(
+            lmsyn_api_url,
+            edition_identifier
+        )
+
+        report.debug("getting edition metadata from LMSyn API: {}".format(edition_url))
+
+        try:
+            response = requests.get(edition_url, timeout=30, auth=auth)
+        except Exception as e:
+            report.debug("Could not request LMSyn metadata for {}: {}".format(edition_identifier, e))
+            return None
+
+        if response is None:
+            report.debug("No response from LMSyn API for {}".format(edition_identifier))
+            return None
+
+        if response.status_code != 200:
+            report.debug("Could not get LMSyn metadata for {}. HTTP status: {}".format(edition_identifier, response.status_code))
+            try:
+                report.debug("LMSyn response body: {}".format(response.text))
+            except Exception:
+                pass
+            return None
+
+        try:
+            lmsyn_json = response.json()
+        except Exception as e:
+            report.debug("Could not parse LMSyn response as JSON: {}".format(e))
+            return None
+
+        if format == "lmsyn-json":
+            return lmsyn_json
+
+        selected_product = None
+
+        # New LMSyn structure: the response itself is the product.
+        # Important: lookup number and returned article number may differ,
+        # e.g. lookup 864110 may return {"artikkelNr": "864115", ...}.
+        # In that case the returned article number is the usable edition id.
+        if isinstance(lmsyn_json, dict) and lmsyn_json.get("artikkelNr"):
+            selected_product = lmsyn_json
+
+        # Old LMSyn structure: try exact match in the products list first.
+        if selected_product is None:
+            for produkt in lmsyn_json.get("produkter", []) or []:
+                if not isinstance(produkt, dict):
+                    continue
+
+                if str(produkt.get("artikkelNr")) == str(edition_identifier):
+                    selected_product = produkt
+                    break
+
+        # Old LMSyn structure fallback: if there is no exact match, but products
+        # exist, use the first usable product rather than failing outright.
+        if selected_product is None:
+            for produkt in lmsyn_json.get("produkter", []) or []:
+                if isinstance(produkt, dict) and produkt.get("artikkelNr"):
+                    selected_product = produkt
+                    break
+
+        if selected_product is None:
+            report.debug("LMSyn metadata found, but no usable product was found for '{}'".format(edition_identifier))
+            return None
+
+        if format == "json":
+            converted = Metadata.convert_lmsyn_metadata_to_nlb_shape(lmsyn_json)
+
+            if not converted or "data" not in converted:
+                report.debug("Could not convert LMSyn metadata to NLB shape")
+                return None
+
+            editions = converted["data"].get("editions", []) or []
+
+            # Prefer exact match when possible.
+            for edition in editions:
+                if str(edition.get("identifier")) == str(edition_identifier):
+                    return edition
+
+            # But accept the returned LMSyn edition when lookup id and returned
+            # article number differ, e.g. 864110 -> 864115.
+            for edition in editions:
+                if str(edition.get("identifier")) == str(selected_product.get("artikkelNr")):
+                    return edition
+
+            if editions:
+                return editions[0]
+
+            report.debug("LMSyn metadata converted, but no editions were produced for '{}'".format(edition_identifier))
+            return None
+
+        title = (
+            lmsyn_json.get("tittel")
+            or lmsyn_json.get("navn")
+            or selected_product.get("tittel")
+            or selected_product.get("navn")
+            or ""
+        )
+
+        identifier = (
+            lmsyn_json.get("isbn")
+            or selected_product.get("isbn")
+            or edition_identifier
+            or ""
+        )
+
+        publisher = (
+            lmsyn_json.get("forlag")
+            or selected_product.get("forlag")
+            or ""
+        )
+
+        creator = (
+            lmsyn_json.get("forfatter")
+            or selected_product.get("forfatter")
+            or ""
+        )
+
+        description = (
+            lmsyn_json.get("beskrivelse")
+            or selected_product.get("beskrivelse")
+            or ""
+        )
+
+        year = (
+            lmsyn_json.get("ar")
+            or lmsyn_json.get("år")
+            or selected_product.get("ar")
+            or selected_product.get("år")
+            or ""
+        )
+
+        malform = lmsyn_json.get("malform") or {}
+        if not isinstance(malform, dict):
+            malform = {}
+
+        malform_id = (
+            lmsyn_json.get("malformId")
+            or malform.get("id")
+            or selected_product.get("malformId")
+            or ""
+        )
+
+        if malform_id == "bm":
+            language = "nb"
+        elif malform_id == "nn":
+            language = "nn"
+        else:
+            language = "nb"
+
+        subjects = []
+        for fag_entry in lmsyn_json.get("fag", []) or []:
+            if not isinstance(fag_entry, dict):
+                continue
+
+            fag = fag_entry.get("fag") or {}
+            if not isinstance(fag, dict):
+                fag = {}
+
+            fag_navn = fag.get("navn")
+            if fag_navn and fag_navn not in subjects:
+                subjects.append(fag_navn)
+
+        date_value = year
+        modified = str(datetime.datetime.utcnow().isoformat()).split(".")[0] + "Z"
+
+        def esc(value):
+            return html.escape(str(value), quote=True) if value is not None else ""
+
+        if format == "opf":
+            lines = [
+                '    <metadata xmlns="http://www.idpf.org/2007/opf" xmlns:dc="http://purl.org/dc/elements/1.1/">',
+                '        <dc:identifier id="pub-identifier">{}</dc:identifier>'.format(esc(identifier)),
+            ]
+
+            if title:
+                lines.append('        <dc:title>{}</dc:title>'.format(esc(title)))
+
+            lines.append('        <dc:language>{}</dc:language>'.format(esc(language)))
+
+            if creator:
+                lines.append('        <dc:creator>{}</dc:creator>'.format(esc(creator)))
+
+            if publisher:
+                lines.append('        <dc:publisher>{}</dc:publisher>'.format(esc(publisher)))
+
+            if date_value:
+                lines.append('        <dc:date>{}</dc:date>'.format(esc(date_value)))
+
+            if description:
+                lines.append('        <dc:description>{}</dc:description>'.format(esc(description)))
+
+            for subject in subjects:
+                lines.append('        <dc:subject>{}</dc:subject>'.format(esc(subject)))
+
+            lines.extend([
+                '        <meta property="dcterms:modified">{}</meta>'.format(esc(modified)),
+                '        <meta property="schema:accessibilityFeature">structuralNavigation</meta>',
+                '        <meta property="schema:accessibilityFeature">tableOfContents</meta>',
+                '        <meta property="schema:accessibilityHazard">none</meta>',
+                '    </metadata>',
+            ])
+
+            return "\n".join(lines)
+
+        if format == "html":
+            lines = [
+                '    <head xmlns="http://www.w3.org/1999/xhtml">',
+                '        <title>{}</title>'.format(esc(title or edition_identifier)),
+                '        <meta name="dc:identifier" content="{}"/>'.format(esc(identifier)),
+            ]
+
+            if title:
+                lines.append('        <meta name="dc:title" content="{}"/>'.format(esc(title)))
+
+            lines.append('        <meta name="dc:language" content="{}"/>'.format(esc(language)))
+
+            if creator:
+                lines.append('        <meta name="dc:creator" content="{}"/>'.format(esc(creator)))
+
+            if publisher:
+                lines.append('        <meta name="dc:publisher" content="{}"/>'.format(esc(publisher)))
+
+            if date_value:
+                lines.append('        <meta name="dc:date" content="{}"/>'.format(esc(date_value)))
+
+            if description:
+                lines.append('        <meta name="dc:description" content="{}"/>'.format(esc(description)))
+
+            for subject in subjects:
+                lines.append('        <meta name="dc:subject" content="{}"/>'.format(esc(subject)))
+
+            lines.extend([
+                '        <meta name="dcterms:modified" content="{}"/>'.format(esc(modified)),
+                '        <meta name="schema:accessibilityFeature" content="structuralNavigation"/>',
+                '        <meta name="schema:accessibilityFeature" content="tableOfContents"/>',
+                '        <meta name="schema:accessibilityHazard" content="none"/>',
+                '    </head>',
+            ])
+
+            return "\n".join(lines)
+
+        return None
 
     @staticmethod
     def get_creative_work_from_api(edition_identifier, editions_metadata="simple", report=logging, use_cache_if_possible=False, creative_work_metadata="simple"):
         if not Config.get("nlb_api_url"):
-            report.warning("nlb_api_url is not set, unable to get metadata from API")
-            return None
+            report.warning("nlb_api_url is not set, unable to get metadata from API. Trying LMSyn API fallback.")
+            return Metadata.get_creative_work_from_lmsyn_api(edition_identifier, report=report)
 
         if editions_metadata == "simple" and use_cache_if_possible:
             cached_data = Metadata.get_creative_work_from_cache(edition_identifier, report=report)
@@ -212,60 +714,41 @@ class Metadata:
             else:
                 report.debug("Could not find the creative work for '{}' in the cache. Will have to try the API directly instead.".format(edition_identifier))
 
-        api_base_url = Metadata._api_base_url()
-
-        # 1) Current practical API behaviour for ISBN/creative-work identifiers:
-        #    /creative-works/{identifier} may return HTTP 410 Gone, but the response
-        #    body can still contain the creative-work payload in data.data.
-        #    This is enough for the production system, so use it when present.
-        direct_creative_work_url = "{}/creative-works/{}?editions-metadata={}&creative-work-metadata={}".format(
-            api_base_url, edition_identifier, editions_metadata, creative_work_metadata)
-        report.debug("getting creative work metadata directly: {}".format(direct_creative_work_url))
-        response = Metadata.requests_get(direct_creative_work_url)
-        data = Metadata._creative_work_from_response(response, direct_creative_work_url, report=report)
-        if data:
-            status_code = Metadata._api_status_code(response)
-            if status_code != 200:
-                report.debug("Using creative-work payload from non-200 response. Status: {}. URL: {}".format(status_code, direct_creative_work_url))
-            return Metadata._fix_short_edition_identifiers(data, edition_identifier)
-
-        # 2) If the incoming identifier is an actual edition id, this endpoint is
-        #    the cleanest lookup path in the current API.
-        edition_creative_work_url = "{}/creative-works/edition:{}?editions-metadata={}&creative-work-metadata={}".format(
-            api_base_url, edition_identifier, editions_metadata, creative_work_metadata)
-        report.debug("getting creative work metadata from edition endpoint: {}".format(edition_creative_work_url))
-        response = Metadata.requests_get(edition_creative_work_url)
-        data = Metadata._creative_work_from_response(response, edition_creative_work_url, report=report)
-        if data:
-            return Metadata._fix_short_edition_identifiers(data, edition_identifier)
-
-        status_code = Metadata._api_status_code(response)
-        report.debug("Could not get creative work metadata from edition endpoint for {}. Status: {}".format(edition_identifier, status_code))
-
-        # 3) Old/internal API behaviour: get the edition first, then use the
-        #    creativeWork id returned by the edition resource.
         edition = Metadata.get_edition_from_api(edition_identifier, report=report)
 
         if not edition:
-            return None
+            report.debug("Could not get edition metadata for {} from NLB API. Trying LMSyn creative-work fallback.".format(edition_identifier))
+            return Metadata.get_creative_work_from_lmsyn_api(edition_identifier, report=report)
+
+        # If get_edition_from_api() had to use LMSyn fallback, it returns a synthetic
+        # edition. Do not try to use that as input to the NLB creative-works endpoint.
+        if edition.get("__source") == "lmsyn":
+            report.debug("Edition metadata for {} came from LMSyn. Using LMSyn creative-work fallback.".format(edition_identifier))
+            return Metadata.get_creative_work_from_lmsyn_api(edition_identifier, report=report)
 
         creative_work_identifier = edition.get("creativeWork")
         if not creative_work_identifier:
-            report.debug("Edition metadata for {} did not contain creativeWork".format(edition_identifier))
-            return None
+            report.debug("Edition metadata for {} did not contain creativeWork. Trying LMSyn creative-work fallback.".format(edition_identifier))
+            return Metadata.get_creative_work_from_lmsyn_api(edition_identifier, report=report)
 
-        creative_work_url = "{}/creative-works/{}?editions-metadata={}&creative-work-metadata={}".format(
-            api_base_url, creative_work_identifier, editions_metadata, creative_work_metadata)
+        creative_work_url = "{}/creative-works/{}?editions-metadata={}&creative-work-metadata={}".format(Config.get("nlb_api_url"), creative_work_identifier, editions_metadata, creative_work_metadata)
 
-        report.debug("getting creative work metadata from creativeWork id: {}".format(creative_work_url))
+        report.debug("getting creative work metadata from: {}".format(creative_work_url))
         response = Metadata.requests_get(creative_work_url)
-        data = Metadata._creative_work_from_response(response, creative_work_url, report=report)
-        if data:
-            return Metadata._fix_short_edition_identifiers(data, edition_identifier)
+        if response is not None and response.status_code == 200:
+            response_json = response.json()
+            if "data" not in response_json:
+                report.debug("response as JSON:")
+                report.debug(str(response_json))
+                raise Exception("No 'data' in response: {}".format(creative_work_url))
+            data = response_json['data']
+            for e in data["editions"]:
+                if len(e["identifier"]) == 6:
+                    e["identifier"] += edition_identifier[6:]  # assume the same trailing digits for all editions
+            return data
 
-        status_code = Metadata._api_status_code(response)
-        report.debug("Could not get creative work metadata for {}. Status: {}".format(edition_identifier, status_code))
-        return None
+        report.debug("Could not get creative work metadata for {} from NLB API. Trying LMSyn creative-work fallback.".format(edition_identifier))
+        return Metadata.get_creative_work_from_lmsyn_api(edition_identifier, report=report)
 
     @staticmethod
     def get_identifiers(edition_identifier, report=logging, use_cache_if_possible=False):
@@ -421,6 +904,11 @@ class Metadata:
 
         creative_work = Metadata.get_creative_work_from_api(edition_identifier, report=report)
 
+        if creative_work is not None and creative_work.get("__source") == "lmsyn":
+            if report_metadata_errors:
+                report.warn("Katalogmetadata ble hentet fra LMSyn-fallback. Hopper over NLB/Bibliofil-validering av katalogposten.")
+            return True
+
         if creative_work is None:
             if report_metadata_errors:
                 normarc_report.info("## Katalogposten for {}:\n".format(edition_identifier[:6]))
@@ -575,6 +1063,10 @@ class Metadata:
             return False
 
         creative_work = Metadata.get_creative_work_from_api(epub.identifier(), report=report)
+        if creative_work is None:
+            report.error("Fant ikke metadata for {}.".format(epub.identifier()))
+            return False
+
         edition_identifier = None
         for edition in creative_work["editions"]:
             if not edition["deleted"] and edition["format"] == publication_format:
