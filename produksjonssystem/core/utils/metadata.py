@@ -701,6 +701,318 @@ class Metadata:
 
         return None
 
+
+    @staticmethod
+    def _isbn_from_dc_source(source):
+        """Return a compact ISBN-like identifier from dc:source, if possible."""
+        if not source:
+            return None
+
+        source = str(source).strip()
+        lowered = source.lower()
+
+        if lowered.startswith("urn:isbn:"):
+            source = source[len("urn:isbn:"):]
+
+        compact = re.sub(r"[^0-9Xx]", "", source)
+        return compact or source
+
+    @staticmethod
+    def _read_epub_package_metadata(epub, report=logging):
+        """
+        Read useful metadata from the current EPUB package.opf.
+
+        This is intentionally namespace-tolerant because supplier OPF files vary:
+        some use an OPF default namespace, some put namespace declarations on
+        individual dc:* elements, and some are quite minimal.
+        """
+        if epub is None or not isinstance(epub, Epub) or not epub.isepub():
+            return None
+
+        if epub.book_path is None or not os.path.isdir(epub.book_path):
+            report.debug("Cannot use EPUB metadata fallback: EPUB is not unzipped: {}".format(epub.book_path))
+            return None
+
+        try:
+            package = epub.get_opf_package_element()
+        except Exception:
+            report.debug("Cannot use EPUB metadata fallback: could not read OPF package element")
+            report.debug(traceback.format_exc())
+            return None
+
+        try:
+            metadata_nodes = package.xpath("//*[local-name()='metadata']")
+        except Exception:
+            metadata_nodes = []
+
+        if not metadata_nodes:
+            report.debug("Cannot use EPUB metadata fallback: no <metadata> element found in OPF")
+            return None
+
+        metadata = metadata_nodes[0]
+
+        def text_values(local_name):
+            values = []
+            for element in metadata.xpath("./*[local-name()='{}']".format(local_name)):
+                value = "".join(element.itertext()).strip()
+                if value:
+                    values.append(value)
+            return values
+
+        def first_text(local_name):
+            values = text_values(local_name)
+            return values[0] if values else None
+
+        identifiers = []
+        pub_identifier = None
+        for element in metadata.xpath("./*[local-name()='identifier']"):
+            value = "".join(element.itertext()).strip()
+            if not value:
+                continue
+            identifiers.append(value)
+            if element.get("id") == "pub-identifier":
+                pub_identifier = value
+
+        meta_entries = []
+        for element in metadata.xpath("./*[local-name()='meta']"):
+            value = element.get("content")
+            if value is None:
+                value = "".join(element.itertext()).strip()
+
+            entry = {
+                "property": element.get("property"),
+                "name": element.get("name"),
+                "content": value,
+                "refines": element.get("refines"),
+                "id": element.get("id"),
+            }
+            meta_entries.append(entry)
+
+        link_entries = []
+        for element in metadata.xpath("./*[local-name()='link']"):
+            entry = {}
+            for key in ["href", "id", "media-type", "properties", "refines", "rel"]:
+                if key in element.attrib:
+                    entry[key] = element.attrib[key]
+            if entry.get("href"):
+                link_entries.append(entry)
+
+        dc_source = first_text("source")
+        creative_work_identifier = Metadata._isbn_from_dc_source(dc_source)
+
+        return {
+            "title": first_text("title"),
+            "identifier": pub_identifier or (identifiers[0] if identifiers else None),
+            "identifiers": identifiers,
+            "language": first_text("language") or "nb",
+            "format": first_text("format"),
+            "creators": text_values("creator"),
+            "publisher": first_text("publisher"),
+            "date": first_text("date"),
+            "source": dc_source,
+            "creativeWork": creative_work_identifier,
+            "meta": meta_entries,
+            "links": link_entries,
+        }
+
+    @staticmethod
+    def get_creative_work_from_epub(epub, publication_format="", report=logging):
+        """Return an NLB-like creative-work dict built from package.opf metadata."""
+        data = Metadata._read_epub_package_metadata(epub, report=report)
+        if not data:
+            return None
+
+        edition_identifier = data.get("identifier") or (epub.identifier() if epub else None)
+        if edition_identifier is not None:
+            edition_identifier = str(edition_identifier)
+
+        format_name = publication_format or "XHTML"
+
+        title = data.get("title") or ""
+        creative_work_identifier = data.get("creativeWork") or data.get("source") or edition_identifier
+
+        edition = {
+            "available": None,
+            "creativeWork": creative_work_identifier,
+            "deleted": False,
+            "educationalUse": False,
+            "format": format_name,
+            "identifier": edition_identifier,
+            "includesAudio": False,
+            "includesBraille": False,
+            "includesText": True,
+            "isAvailable": True,
+            "isForDistribution": True,
+            "library": "Statped",
+            "loans": 0,
+            "md5": None,
+            "narratedUsingTts": False,
+            "presentableTitle": title,
+            "registered": data.get("date"),
+            "title": title,
+            "underProduction": False,
+            "__source": "epub",
+        }
+
+        return {
+            "editions": [edition],
+            "identifier": creative_work_identifier,
+            "md5": None,
+            "title": title,
+            "__source": "epub",
+        }
+
+    @staticmethod
+    def get_edition_from_epub(edition_identifier, format="json", report=logging, epub=None, publication_format=""):
+        """
+        Last-resort fallback: build edition/OPF/HTML metadata from the OPF that is
+        already inside the EPUB.
+
+        This is used only after NLB and LMSyn have failed.
+        """
+        import html
+
+        if format not in ["json", "opf", "html"]:
+            report.warning("EPUB metadata fallback only supports json, opf and html format")
+            return None
+
+        package_metadata = Metadata._read_epub_package_metadata(epub, report=report)
+        if not package_metadata:
+            return None
+
+        def esc(value):
+            return html.escape(str(value), quote=True) if value is not None else ""
+
+        actual_identifier = package_metadata.get("identifier") or edition_identifier
+        if actual_identifier is not None:
+            actual_identifier = str(actual_identifier)
+
+        if format == "json":
+            creative_work = Metadata.get_creative_work_from_epub(epub, publication_format=publication_format, report=report)
+            if not creative_work:
+                return None
+            editions = creative_work.get("editions", []) or []
+
+            for edition in editions:
+                if str(edition.get("identifier")) == str(edition_identifier):
+                    return edition
+
+            for edition in editions:
+                if str(edition.get("identifier")) == str(actual_identifier):
+                    return edition
+
+            return editions[0] if editions else None
+
+        title = package_metadata.get("title") or actual_identifier or edition_identifier or ""
+        language = package_metadata.get("language") or "nb"
+        publisher = package_metadata.get("publisher")
+        date_value = package_metadata.get("date")
+        source = package_metadata.get("source")
+        creators = package_metadata.get("creators") or []
+        dc_format = package_metadata.get("format")
+
+        # Use the current time as dcterms:modified, like insert_metadata() does for
+        # normal API metadata. Other metadata values remain sourced from the EPUB.
+        modified = str(datetime.datetime.utcnow().isoformat()).split(".")[0] + "Z"
+
+        # Preserve useful schema accessibility metadata from the supplier OPF.
+        # Nordic/a11y/cover/link metadata is already copied later in insert_metadata(),
+        # so avoid duplicating those here.
+        schema_meta = []
+        title_type_meta = []
+        for entry in package_metadata.get("meta", []) or []:
+            prop = entry.get("property")
+            name = entry.get("name")
+            content = entry.get("content")
+            refines = entry.get("refines")
+
+            if not content:
+                continue
+
+            if prop == "title-type":
+                title_type_meta.append(entry)
+            elif prop and prop.startswith("schema:"):
+                schema_meta.append(entry)
+            elif name and name.startswith("schema:"):
+                schema_meta.append(entry)
+
+        if format == "opf":
+            lines = [
+                '    <metadata xmlns="http://www.idpf.org/2007/opf" xmlns:dc="http://purl.org/dc/elements/1.1/">',
+                '        <dc:title id="maintitle">{}</dc:title>'.format(esc(title)),
+            ]
+
+            for entry in title_type_meta:
+                refines = entry.get("refines") or "#maintitle"
+                prop = entry.get("property") or "title-type"
+                lines.append('        <meta refines="{}" property="{}">{}</meta>'.format(esc(refines), esc(prop), esc(entry.get("content"))))
+
+            lines.extend([
+                '        <dc:language>{}</dc:language>'.format(esc(language)),
+                '        <dc:identifier id="pub-identifier">{}</dc:identifier>'.format(esc(actual_identifier or edition_identifier)),
+            ])
+
+            if source:
+                lines.append('        <dc:source>{}</dc:source>'.format(esc(source)))
+
+            for creator in creators:
+                lines.append('        <dc:creator>{}</dc:creator>'.format(esc(creator)))
+
+            if dc_format:
+                lines.append('        <dc:format>{}</dc:format>'.format(esc(dc_format)))
+
+            if publisher:
+                lines.append('        <dc:publisher>{}</dc:publisher>'.format(esc(publisher)))
+
+            if date_value:
+                lines.append('        <dc:date>{}</dc:date>'.format(esc(date_value)))
+
+            lines.append('        <meta property="dcterms:modified">{}</meta>'.format(esc(modified)))
+
+            for entry in schema_meta:
+                prop = entry.get("property") or entry.get("name")
+                if prop:
+                    lines.append('        <meta property="{}">{}</meta>'.format(esc(prop), esc(entry.get("content"))))
+
+            lines.append('    </metadata>')
+            return "\n".join(lines)
+
+        if format == "html":
+            lines = [
+                '    <head xmlns="http://www.w3.org/1999/xhtml">',
+                '        <title>{}</title>'.format(esc(title)),
+                '        <meta name="dc:identifier" content="{}"/>'.format(esc(actual_identifier or edition_identifier)),
+                '        <meta name="dc:title" content="{}"/>'.format(esc(title)),
+                '        <meta name="dc:language" content="{}"/>'.format(esc(language)),
+            ]
+
+            if source:
+                lines.append('        <meta name="dc:source" content="{}"/>'.format(esc(source)))
+
+            for creator in creators:
+                lines.append('        <meta name="dc:creator" content="{}"/>'.format(esc(creator)))
+
+            if dc_format:
+                lines.append('        <meta name="dc:format" content="{}"/>'.format(esc(dc_format)))
+
+            if publisher:
+                lines.append('        <meta name="dc:publisher" content="{}"/>'.format(esc(publisher)))
+
+            if date_value:
+                lines.append('        <meta name="dc:date" content="{}"/>'.format(esc(date_value)))
+
+            lines.append('        <meta name="dcterms:modified" content="{}"/>'.format(esc(modified)))
+
+            for entry in schema_meta:
+                prop = entry.get("property") or entry.get("name")
+                if prop:
+                    lines.append('        <meta name="{}" content="{}"/>'.format(esc(prop), esc(entry.get("content"))))
+
+            lines.append('    </head>')
+            return "\n".join(lines)
+
+        return None
+
     @staticmethod
     def get_creative_work_from_api(edition_identifier, editions_metadata="simple", report=logging, use_cache_if_possible=False, creative_work_metadata="simple"):
         if not Config.get("nlb_api_url"):
@@ -1060,9 +1372,19 @@ class Metadata:
                                               publication_format=publication_format,
                                               report_metadata_errors=report_metadata_errors)
         if not is_valid:
-            return False
+            # Last-resort: if neither NLB nor LMSyn can validate/find metadata,
+            # still allow the pipeline to continue when the EPUB itself contains
+            # usable package.opf metadata.
+            epub_creative_work = Metadata.get_creative_work_from_epub(epub, publication_format=publication_format, report=report)
+            if epub_creative_work is None:
+                return False
+            report.warn("Katalogmetadata kunne ikke valideres fra NLB/LMSyn. Bruker metadata fra EPUBens package.opf som siste fallback.")
 
         creative_work = Metadata.get_creative_work_from_api(epub.identifier(), report=report)
+        if creative_work is None:
+            report.warn("Fant ikke metadata for {} fra NLB/LMSyn. Prøver metadata fra EPUBens package.opf som siste fallback.".format(epub.identifier()))
+            creative_work = Metadata.get_creative_work_from_epub(epub, publication_format=publication_format, report=report)
+
         if creative_work is None:
             report.error("Fant ikke metadata for {}.".format(epub.identifier()))
             return False
@@ -1071,20 +1393,50 @@ class Metadata:
         for edition in creative_work["editions"]:
             if not edition["deleted"] and edition["format"] == publication_format:
                 edition_identifier = edition["identifier"]
+
+        if edition_identifier is None:
+            epub_creative_work = Metadata.get_creative_work_from_epub(epub, publication_format=publication_format, report=report)
+            if epub_creative_work is not None:
+                report.warn("Fant ikke '{}'-boknummer for {} fra NLB/LMSyn. Bruker boknummer fra EPUBens package.opf som siste fallback.".format(publication_format, epub.identifier()))
+                creative_work = epub_creative_work
+                for edition in creative_work["editions"]:
+                    if not edition["deleted"] and edition["format"] == publication_format:
+                        edition_identifier = edition["identifier"]
+                        break
+
         if edition_identifier is None:
             report.error("Fant ikke '{}'-boknummer for {}.".format(publication_format, epub.identifier()))
             return False
 
-        # Get OPF/HTML metadata from Bibliofil
+        # Get OPF/HTML metadata from Bibliofil/NLB, then LMSyn, then the EPUB itself.
 
         opf_metadata = Metadata.get_edition_from_api(edition_identifier, format="opf", report=report)
+        if opf_metadata is None:
+            report.warn("Klarte ikke å hente OPF-metadata fra NLB/LMSyn. Bruker metadata fra EPUBens package.opf som siste fallback.")
+            opf_metadata = Metadata.get_edition_from_epub(
+                edition_identifier,
+                format="opf",
+                report=report,
+                epub=epub,
+                publication_format=publication_format
+            )
+
         html_head = Metadata.get_edition_from_api(edition_identifier, format="html", report=report)
+        if html_head is None:
+            report.warn("Klarte ikke å hente HTML-metadata fra NLB/LMSyn. Bruker metadata fra EPUBens package.opf som siste fallback.")
+            html_head = Metadata.get_edition_from_epub(
+                edition_identifier,
+                format="html",
+                report=report,
+                epub=epub,
+                publication_format=publication_format
+            )
 
         if opf_metadata is None:
-            report.error("Klarte ikke å hente OPF-metadata fra APIet.")
+            report.error("Klarte ikke å hente OPF-metadata fra APIet eller EPUBen.")
             return False
         if html_head is None:
-            report.error("Klarte ikke å hente HTML-metadata fra APIet.")
+            report.error("Klarte ikke å hente HTML-metadata fra APIet eller EPUBen.")
             return False
 
         # Add metadata from EPUB
