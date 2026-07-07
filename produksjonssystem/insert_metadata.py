@@ -58,15 +58,15 @@ class InsertMetadata(Pipeline):
             self.utils.report.error(self.book["name"] + ": Filnavn stemmer ikke overens med dc:identifier: {}".format(epub.identifier()))
             return False
 
-        should_produce, metadata_valid = Metadata.should_produce(epub.identifier(), self.publication_format, report=self.utils.report)
-        if not metadata_valid:
-            self.utils.report.info("{} har feil i metadata for {}. Avbryter.".format(epub.identifier(), self.publication_format))
-            self.utils.report.title = "{}: {} har feil i metadata for {} 😭👎 {}".format(self.title, epub.identifier(), self.publication_format, epubTitle)
-            return False
-        if not should_produce:
-            self.utils.report.info("{} skal ikke produseres som {}. Avbryter.".format(epub.identifier(), self.publication_format))
-            self.utils.report.title = "{}: {} Skal ikke produseres som {} 🤷 {}".format(self.title, epub.identifier(), self.publication_format, epubTitle)
-            return True
+        # should_produce, metadata_valid = Metadata.should_produce(epub.identifier(), self.publication_format, report=self.utils.report)
+        # if not metadata_valid:
+        #     self.utils.report.info("{} har feil i metadata for {}. Avbryter.".format(epub.identifier(), self.publication_format))
+        #     self.utils.report.title = "{}: {} har feil i metadata for {} 😭👎 {}".format(self.title, epub.identifier(), self.publication_format, epubTitle)
+        #     return False
+        # if not should_produce:
+        #     self.utils.report.info("{} skal ikke produseres som {}. Avbryter.".format(epub.identifier(), self.publication_format))
+        #     self.utils.report.title = "{}: {} Skal ikke produseres som {} 🤷 {}".format(self.title, epub.identifier(), self.publication_format, epubTitle)
+        #     return True
 
         self.utils.report.info("Lager en kopi av EPUBen")
         temp_epubdir_obj = tempfile.TemporaryDirectory()
