@@ -1,5 +1,20 @@
 {
     "updates": [
+         {
+            "version": "1.2.4.1",
+            "date": "2026-06-29",
+            "changes": {
+                "added": [
+                    ""
+                ],
+                "changed": [
+                    ""
+                ],
+                "fixed": [
+                    "Tidligere ville steget som fjernet whitespace i prepare-for-braille ved en feil konvertere HTML-kommentarer (f.eks. <!-- <figure>...</figure> -->) til bokstavelig escaped tekst (&lt;figure&gt;...&lt;/figure&gt;). "
+                ]
+            }
+        },
           {
             "version": "1.2.4",
             "date": "2026-06-26",

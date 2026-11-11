@@ -10,7 +10,7 @@ import tempfile
 from lxml import etree as ElementTree
 from lxml import etree
 import xml.etree.ElementTree as ET
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Comment
 
 
 from core.pipeline import Pipeline
@@ -236,7 +236,7 @@ class PrepareForBraille(Pipeline):
             aside_id = aside.get('id')
             # Strip leading whitespace
             while True:
-                text_nodes = [node for node in aside.find_all(string=True)]
+                text_nodes = [node for node in aside.find_all(string=True) if not isinstance(node, Comment)]
                 if not text_nodes:
                     break
                 first_node = text_nodes[0]
@@ -252,7 +252,7 @@ class PrepareForBraille(Pipeline):
 
             # Strip trailing whitespace
             while True:
-                text_nodes = [node for node in aside.find_all(string=True)]
+                text_nodes = [node for node in aside.find_all(string=True) if not isinstance(node, Comment)]
                 if not text_nodes:
                     break
                 last_node = text_nodes[-1]

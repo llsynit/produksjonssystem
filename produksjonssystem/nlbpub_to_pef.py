@@ -341,6 +341,8 @@ class NlbpubToPef(Pipeline):
                     #"stylesheet-parameters": "(skip-margin-top-of-page:true)",
                     "stylesheet-parameters": "(skip-margin-top-of-page:true)(maximum-number-of-sheets:50)",
                 }
+                if line_spacing == "double":
+                    braille_arguments["stylesheet-parameters"] += "(line-spacing:double)"
             else:
                 braille_arguments = braille_arguments_from_queue
                 print("Braille arguments from the queue:", braille_arguments)
