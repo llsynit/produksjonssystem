@@ -282,10 +282,8 @@
                          html:h5[not(ancestor::*/tokenize(@epub:type,'\s+') = 'part')] |
                          html:h6[ancestor::*/tokenize(@epub:type,'\s+') = 'part']" mode="clean">
         <!-- no xsl:copy: see "rename-headings" below -->
+        <!-- Kolon etter h5 (og h6 i part) er fjernet: skal ikke ha kolon etter overskrift -->
         <xsl:next-match/>
-        <xsl:if test="not(ends-with(normalize-space(string-join(.//text(),'')),':'))">
-            <xsl:text>:</xsl:text>
-        </xsl:if>
     </xsl:template>
     
     <!--
