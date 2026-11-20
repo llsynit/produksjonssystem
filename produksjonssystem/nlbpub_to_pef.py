@@ -6,7 +6,6 @@ import os
 import sys
 import tempfile
 import traceback
-import pika
 from typing import List, Optional, Tuple
 
 from lxml import etree as ElementTree
@@ -17,7 +16,6 @@ from core.utils.metadata import Metadata
 from core.utils.daisy_pipeline import DaisyPipelineJob
 from core.utils.filesystem import Filesystem
 from prepare_for_braille import PrepareForBraille
-from core.rabbitmq_receiver import check_braille_filename_in_queues
 
 if sys.version_info[0] != 3 or sys.version_info[1] < 5:
     print("# This script requires Python version 3.5+")
@@ -173,39 +171,6 @@ class NlbpubToPef(Pipeline):
         epub_identifier = html_xml.xpath("/*/*[local-name()='head']/*[@name='nlbprod:identifier.epub']")
         epub_identifier = epub_identifier[0].attrib["content"] if epub_identifier and "content" in epub_identifier[0].attrib else None
 
-        #----Start rabbitmq-----#
-        braille_arguments_from_queue = {}
-        self.utils.report.info("Getting values RabbitMQ queue...")
-        option = check_braille_filename_in_queues(os.path.basename(html_file))
-        if option is not None:
-            # Get braille_arguments from the message
-            print("File name found in the queue" )
-            if option=="html":
-                braille_arguments_from_queue["html"] = os.path.basename(html_file)
-            else:
-                braille_arguments_from_queue["source"] = os.path.basename(html_file)
-            braille_arguments_from_queue["transform"] = "(formatter:dotify)(translator:liblouis)(dots:6)(grade:0)"
-            braille_arguments_from_queue["stylesheet"] = "braille.scss"
-            braille_arguments_from_queue["page-width"] = '38'
-            braille_arguments_from_queue["page-height"] = '29'
-            braille_arguments_from_queue["toc-depth"] = '2'
-            braille_arguments_from_queue["maximum-number-of-sheets"] = '50'
-            braille_arguments_from_queue["include-production-notes"] = 'true'
-            braille_arguments_from_queue["hyphenation"] = 'auto'
-            braille_arguments_from_queue["include-preview"] = 'true'
-            braille_arguments_from_queue["allow-volume-break-inside-leaf-section-factor"] = '10'
-            braille_arguments_from_queue["prefer-volume-break-before-higher-level-factor"] = '1'
-            braille_arguments_from_queue["stylesheet-parameters"] = "(skip-margin-top-of-page:true)"
-            print("Braille arguments from the queue:", braille_arguments_from_queue)
-
-        else:
-            print(f"{os.path.basename(html_file)} not found in the queue.")
-            self.utils.report.info(f"{os.path.basename(html_file)} not found from rb queue. Default values will be used.")
-
-        self.utils.report.info("Continue with the rest of the code...")
-        #----End rabbitmq-----#
-
-
         # ---------- konverter til PEF ----------
 
         # create context for Pipeline 2 job
@@ -320,33 +285,26 @@ class NlbpubToPef(Pipeline):
 		"prefer-volume-break-before-higher-level-factor" : '1',
                 "stylesheet-parameters": "(skip-margin-top-of-page:true)",
                }"""
-            if not braille_arguments_from_queue:
-                print("Braille arguments from the queue is empty: Using default braille arguments")
-                self.utils.report.info("Braille arguments from the queue is empty: Using default braille arguments")
-                braille_arguments = {
-                    #"html": os.path.basename(html_file), #for versions 1.14.14 and old versions
-                    "source": os.path.basename(html_file), #from version 1.14.15 and newer versions
-                    "transform": "(formatter:dotify)(translator:liblouis)(dots:6)(grade:0)",
-                    "stylesheet": "braille.scss",
-                    "page-width": '38',
-                    "page-height": '29',
-                    "toc-depth": '2',
-                    #"maximum-number-of-sheets": '50',
-                    "include-production-notes" : 'true',
-                    "hyphenation" : 'none',
-                    "include-preview": 'true',
-                    "hyphenation-at-page-breaks" : 'except-at-volume-breaks',
-                    "allow-volume-break-inside-leaf-section-factor" : '10',
-                    "prefer-volume-break-before-higher-level-factor" : '1',
-                    #"stylesheet-parameters": "(skip-margin-top-of-page:true)",
-                    "stylesheet-parameters": "(skip-margin-top-of-page:true)(maximum-number-of-sheets:50)",
-                }
-                if line_spacing == "double":
-                    braille_arguments["stylesheet-parameters"] += "(line-spacing:double)"
-            else:
-                braille_arguments = braille_arguments_from_queue
-                print("Braille arguments from the queue:", braille_arguments)
-                self.utils.report.info("Braille arguments from the queue:", braille_arguments)
+            braille_arguments = {
+                #"html": os.path.basename(html_file), #for versions 1.14.14 and old versions
+                "source": os.path.basename(html_file), #from version 1.14.15 and newer versions
+                "transform": "(formatter:dotify)(translator:liblouis)(dots:6)(grade:0)",
+                "stylesheet": "braille.scss",
+                "page-width": '38',
+                "page-height": '29',
+                "toc-depth": '2',
+                #"maximum-number-of-sheets": '50',
+                "include-production-notes" : 'true',
+                "hyphenation" : 'none',
+                "include-preview": 'true',
+                "hyphenation-at-page-breaks" : 'except-at-volume-breaks',
+                "allow-volume-break-inside-leaf-section-factor" : '10',
+                "prefer-volume-break-before-higher-level-factor" : '1',
+                #"stylesheet-parameters": "(skip-margin-top-of-page:true)",
+                "stylesheet-parameters": "(skip-margin-top-of-page:true)(maximum-number-of-sheets:50)",
+            }
+            if line_spacing == "double":
+                braille_arguments["stylesheet-parameters"] += "(line-spacing:double)"
 
         #"hyphenation" : 'false',
         #"allow-volume-break-inside-leaf-section-factor" : '10',

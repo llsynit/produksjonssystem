@@ -25,7 +25,6 @@ import core.endpoints.lines  # noqa
 import core.endpoints.steps  # noqa
 import core.endpoints.documentation  # noqa
 import core.server  # noqa
-import core.rabbitmq_receiver  # noqa
 
 from core.config import Config  # noqa
 from core.directory import Directory  # noqa
@@ -536,17 +535,6 @@ class Produksjonssystem():
         self.shouldRun(True)
 
         self.server = core.server.start(hot_reload=False, airbrake_config=self.airbrake_config, shutdown_function=self.stop)
-        #added 05.03.2024
-        #Using rabbitmq to send messages to receive messages(parameters to various production pipelines) from the dashboard
-        #self.rabbitmq_receiver = core.rabbitmq_receiver.start()
-        #self.rabbitmq_receiver = core.rabbitmq_receiver.join()
-
-
-
-        #self._configThread = Thread(target=self._rabbitmq_thread, name="rabbitmq")
-        #self._configThread.setDaemon(True) #deprecated
-        #self._configThread.daemon = True
-        #self._configThread.start()
 
 
         self._configThread = Thread(target=self._config_thread, name="config")
@@ -823,17 +811,6 @@ class Produksjonssystem():
                 except Exception:
                     self.info("En feil oppstod under sending av dagsrapporten for " + pipeline[0].title)
                     self.info(traceback.format_exc())
-    #def _rabbitmq_thread(self):
-        # RabbitMQ receiver
-    #    while self.shouldRun():
-    #        time.sleep(5)
-    #        try:
-    #            self.rabbitmq_receiver = core.rabbitmq_receiver.start()
-    #            self.rabbitmq_receiver.join()
-    #        except Exception:
-    #            self.info("Rabiit exception")
-    #            self.info(traceback.format_exc())
-
     def _config_thread(self):
         fileName = os.environ.get("CONFIG_FILE")
         last_update = 0
