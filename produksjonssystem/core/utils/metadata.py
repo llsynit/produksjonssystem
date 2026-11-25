@@ -605,6 +605,19 @@ class Metadata:
                 logging.debug(html_head)
                 raise
 
+            # keep braille production settings from the EPUB that Bibliofil doesn't provide
+            # (they are used by nlbpub_to_pef.py). If Bibliofil has a value, it is used instead.
+            for name in ["dc:format.linespacing", "dc:format.printing"]:
+                if new_head.xpath("*[local-name()='meta' and @name=$name]", name=name):
+                    continue
+                for old_meta in old_head.xpath("*[local-name()='meta' and @name=$name]", name=name):
+                    kept_meta = copy.deepcopy(old_meta)
+                    last = new_head[-1]
+                    kept_meta.tail = last.tail
+                    last.tail = "\n        "
+                    new_head.append(kept_meta)
+                    report.info("Beholder {}=\"{}\" fra EPUBen".format(name, kept_meta.attrib.get("content", "")))
+
             # replace old_head with new_head
             if old_head.tail is not None:
                 new_head.tail = old_head.tail

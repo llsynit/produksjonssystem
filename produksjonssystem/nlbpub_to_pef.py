@@ -304,7 +304,22 @@ class NlbpubToPef(Pipeline):
                 "stylesheet-parameters": "(skip-margin-top-of-page:true)(maximum-number-of-sheets:50)",
             }
             if line_spacing == "double":
+                # $line-spacing is set to double through the stylesheet parameter.
                 braille_arguments["stylesheet-parameters"] += "(line-spacing:double)"
+                # Use a working copy of braille.scss with the double line spacing rules appended.
+                # The original braille.scss is left unchanged.
+                stylesheet_dir = os.path.join(Xslt.xslt_dir, PrepareForBraille.uid)
+                with open(os.path.join(stylesheet_dir, "braille.scss"), encoding="utf-8") as f:
+                    braille_scss = f.read()
+                with open(os.path.join(stylesheet_dir, "braille-double-line-spacing.scss"), encoding="utf-8") as f:
+                    # drop @charset, it is only allowed at the start of the stylesheet
+                    double_line_spacing_scss = "".join(line for line in f if not line.startswith("@charset"))
+                scss_tempdir_object = tempfile.TemporaryDirectory()
+                double_braille_scss = os.path.join(scss_tempdir_object.name, "braille.scss")
+                with open(double_braille_scss, "w", encoding="utf-8") as f:
+                    f.write(braille_scss.rstrip() + "\n\n" + double_line_spacing_scss)
+                html_context["braille.scss"] = double_braille_scss
+                self.utils.report.info("Bruker braille.scss med regler for åpen linjeavstand")
 
         #"hyphenation" : 'false',
         #"allow-volume-break-inside-leaf-section-factor" : '10',

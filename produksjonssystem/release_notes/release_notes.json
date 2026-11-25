@@ -1,5 +1,21 @@
 {
     "updates": [
+        {
+            "version": "1.2.5",
+            "date": "2026-11-25",
+            "changes": {
+                "added": [
+                    "PEF: Støtte for åpen linjeavstand (Statped). Når HTML-en har <meta name=\"dc:format.linespacing\" content=\"double\"/>, brukes en arbeidskopi av braille.scss med reglene fra braille-double-line-spacing.scss lagt til, og (line-spacing:double) sendes som stylesheet-parameter. Den opprinnelige braille.scss endres ikke.",
+                    "PEF: Ved åpen linjeavstand får innholdsfortegnelsene (#generated-document-toc og #generated-volume-toc) åpen linjeavstand, mens tittelsiden beholder enkel linjeavstand."
+                ],
+                "changed": [
+                    ""
+                ],
+                "fixed": [
+                    "Metadata: dc:format.linespacing og dc:format.printing fra EPUBen ble fjernet når metadata fra Bibliofil ble satt inn i HTML-en. De beholdes nå (med mindre Bibliofil har en egen verdi), slik at NLBPUB til PEF får riktig linjeavstand og trykk."
+                ]
+            }
+        },
          {
             "version": "1.2.4.1",
             "date": "2026-06-29",
@@ -26,7 +42,7 @@
                     ""
                 ],
                 "fixed": [
-                    "PEF: Fixed TypeError: Argument must be bytes or unicode, got 'NoneType' when transferring metadata to PEF"
+                    "PEF: Fixed TypeError: Argument must be bytes or unicode, got 'NoneType' when transferring metadata to PEF",
                     "Metadata er lagt inn riktig i PEF og filen kan åpnes i Dotify studio"
                 ]
             }

@@ -1,0 +1,25 @@
+@charset "UTF-8";
+
+/* Brailleify: when double line spacing is passed as a parameter (line-spacing: double), this rule
+ * is added to the end of a working copy of Statped's braille.scss for that conversion. The
+ * original braille.scss is unchanged.
+ *
+ * Statped's requirements: double line spacing starts with the first table of contents, and the
+ * title page stays exactly as with single line spacing.
+ *
+ * braille.scss gives line-height: 2 to body and its sections, and line-height: 1 to :root. The
+ * Pipeline inserts the generated tables of contents (#generated-document-toc and
+ * #generated-volume-toc) as children of html, not body, so they don't inherit double spacing.
+ * This rule gives them double spacing.
+ */
+#generated-document-toc,
+#generated-volume-toc {
+	line-height: 2;
+}
+
+/* braille.scss leaves the title page out of its double-spacing rule, but the title page still
+ * inherits line-height: 2 from body. This keeps it the same as with single line spacing.
+ */
+.pef-titlepage {
+	line-height: 1;
+}
